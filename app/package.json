@@ -1,0 +1,21 @@
+{
+  "name": "petwise-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Petwise · 基于计算机视觉与大模型的宠物智能服务 APP 平台（本科毕设前端）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.64.4",
+    "vue": "^3.4.27",
+    "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11"
+  }
+}

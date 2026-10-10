@@ -1,0 +1,88 @@
+/* ============================================================
+   Petwise · 设计令牌（Design Tokens）
+   自然有机 + 杂志编辑：暖纸白底、深松绿墨、暖珊瑚强调
+   ============================================================ */
+:root {
+  /* ---------- 颜色：主色 60% / 辅助 30% / 强调 10% ---------- */
+  --color-bg: #F2EBDC;          /* 暖纸白（主导表面） */
+  --color-bg-2: #ECE2CF;        /* 次级纸面 */
+  --color-surface: #FBF6EC;     /* 卡片表面（更亮的纸） */
+  --color-surface-2: #F6EEDD;   /* 次级卡片 */
+
+  --color-ink: #1B2A22;         /* 深松绿近黑（主导墨色 / 标题） */
+  --color-ink-2: #3C4A40;       /* 次级正文 */
+  --color-muted: #5E6B60;       /* 弱化文字（已校验对比度） */
+  --color-faint: #8C958A;       /* 极弱提示 */
+
+  --color-accent: #E8552B;      /* 暖珊瑚（唯一强调色，只给关键动作） */
+  --color-accent-ink: #B33C18;  /* 珊瑚文字（用于浅底上的强调文字） */
+  --color-accent-soft: #FBE3D7; /* 珊瑚浅底 */
+
+  --color-sage: #7E9B78;        /* 苔绿（辅助） */
+  --color-sage-soft: #E4ECDF;
+  --color-sand: #E4D7BE;        /* 沙色（辅助块） */
+  --color-peach: #F2A65A;       /* 蜜桃（暖高光） */
+  --color-alert: #C8431F;       /* 健康告警 */
+  --color-good: #4E8C5B;        /* 健康良好 */
+  --color-watch: #D9952B;       /* 需关注 */
+
+  --color-border: rgba(27, 42, 34, 0.12);
+  --color-border-strong: rgba(27, 42, 34, 0.22);
+
+  /* ---------- 阴影：带环境色（绿调）而非纯黑 ---------- */
+  --shadow-1: 0 2px 8px rgba(27, 42, 34, 0.08);
+  --shadow-2: 0 10px 30px rgba(27, 42, 34, 0.12);
+  --shadow-3: 0 24px 60px rgba(27, 42, 34, 0.18);
+  /* 高端卡片：双层阴影（贴边细影 + 柔和环境影） */
+  --shadow-soft:
+    0 1px 2px rgba(27, 42, 34, 0.06),
+    0 10px 26px rgba(27, 42, 34, 0.10);
+
+  /* ---------- 渐变（图片块 / 强调面） ---------- */
+  --grad-sage: linear-gradient(150deg, #dfead8, #aec9a6);
+  --grad-peach: linear-gradient(150deg, #fbe7d2, #f0bf94);
+  --grad-ink: linear-gradient(150deg, #2f463a, #16241d);
+  --grad-coral: linear-gradient(150deg, #f4a987, #d6502a);
+  --grad-sand: linear-gradient(150deg, #efe6d2, #d8c6a3);
+
+  /* ---------- 圆角 ---------- */
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --radius-xl: 40px;
+  --radius-2xl: 56px;
+  --radius-pill: 999px;
+
+  /* ---------- 间距尺度（4 / 8 / 12 / 16 / 24 / 32 / 48 / 64） ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ---------- 字阶（模块化，clamp 响应式） ---------- */
+  --font-display: 'Fraunces', 'Noto Serif SC', serif;
+  --font-body: 'Karla', 'Noto Sans SC', 'PingFang SC', sans-serif;
+
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-base: 16px;
+  --fs-md: 18px;
+  --fs-lg: clamp(20px, 5vw, 22px);
+  --fs-xl: clamp(26px, 6.5vw, 30px);
+  --fs-2xl: clamp(34px, 8vw, 42px);
+  --fs-3xl: clamp(46px, 12vw, 64px);
+
+  /* ---------- 动效 ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 160ms;
+  --dur-base: 320ms;
+  --dur-slow: 640ms;
+
+  /* ---------- 设备外壳（桌面预览时的手机框） ---------- */
+  --shell-max: 440px;
+}

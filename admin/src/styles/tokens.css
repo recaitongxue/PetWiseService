@@ -1,0 +1,52 @@
+/* ============================================================
+   Petwise Admin · 设计令牌（同品牌，桌面后台方向：工业实用 + 编辑感）
+   ============================================================ */
+:root {
+  --color-bg: #F4EFE4;            /* 暖纸底（内容区） */
+  --color-surface: #FBF7EE;       /* 卡片 */
+  --color-surface-2: #F0E9D9;     /* 次级面 */
+  --color-panel: #1B2A22;         /* 侧边栏深松绿 */
+
+  --color-ink: #1B2A22;
+  --color-ink-2: #3C4A40;
+  --color-muted: #5E6B60;
+  --color-faint: #8C958A;
+
+  --color-accent: #E8552B;
+  --color-accent-ink: #B33C18;
+  --color-accent-soft: #FBE3D7;
+
+  --color-sage: #7E9B78;
+  --color-sage-soft: #E4ECDF;
+  --color-peach: #F2A65A;
+  --color-good: #4E8C5B;
+  --color-watch: #D9952B;
+  --color-alert: #C8431F;
+
+  --color-border: rgba(27, 42, 34, 0.12);
+  --color-border-strong: rgba(27, 42, 34, 0.22);
+  --color-line: rgba(251, 247, 238, 0.12); /* 深面板上的发丝线 */
+
+  --shadow-1: 0 2px 8px rgba(27, 42, 34, 0.07);
+  --shadow-soft: 0 1px 2px rgba(27, 42, 34, 0.05), 0 10px 26px rgba(27, 42, 34, 0.09);
+  --shadow-3: 0 24px 60px rgba(27, 42, 34, 0.2);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --font-display: 'Fraunces', 'Noto Serif SC', serif;
+  --font-body: 'Karla', 'Noto Sans SC', 'PingFang SC', sans-serif;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 26px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur-base: 320ms;
+}

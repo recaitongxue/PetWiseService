@@ -1,0 +1,183 @@
+/* ============================================================
+   Petwise Admin · 基础层
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  color: var(--color-ink);
+  background: var(--color-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+img { display: block; max-width: 100%; }
+button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- 纸质颗粒氛围 ---------- */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- 通用卡片 ---------- */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 20px 22px;
+}
+
+/* ---------- 页面标题 ---------- */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.page-sub {
+  font-size: var(--fs-sm);
+  color: var(--color-muted);
+  margin-top: 4px;
+}
+
+/* ---------- 数据表 ---------- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+}
+.table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.table tbody tr {
+  transition: background var(--dur-fast);
+}
+.table tbody tr:hover {
+  background: var(--color-surface-2);
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- 状态徽章 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge.good { color: var(--color-good); background: var(--color-sage-soft); }
+.badge.watch { color: #A66E14; background: #F7E8CB; }
+.badge.alert { color: var(--color-alert); background: var(--color-accent-soft); }
+.badge.neutral { color: var(--color-muted); background: var(--color-surface-2); }
+.badge.ink { color: var(--color-surface); background: var(--color-panel); }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast);
+  min-height: 36px;
+}
+.btn:active { transform: scale(0.96); }
+.btn.primary { background: var(--color-panel); color: var(--color-surface); }
+.btn.accent { background: var(--color-accent); color: #fff; }
+.btn.ghost { box-shadow: inset 0 0 0 1px var(--color-border-strong); color: var(--color-ink); }
+.btn.danger { box-shadow: inset 0 0 0 1px rgba(200, 67, 31, 0.4); color: var(--color-alert); }
+.btn.sm { padding: 5px 12px; min-height: 30px; font-size: 12px; }
+
+/* ---------- 搜索框 ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0 16px;
+  height: 40px;
+  min-width: 260px;
+}
+.search input {
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--color-ink);
+  width: 100%;
+}
+
+/* ---------- 入场动效 ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  transition-delay: var(--d, 0ms);
+}
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}

@@ -1,0 +1,224 @@
+/* ============================================================
+   Petwise · 基础层（重置 / 排版 / 氛围 / 动效降级）
+   ============================================================ */
+
+/* ---------- 重置 ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-bg);
+  line-height: 1.6;
+  font-size: var(--fs-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+}
+
+/* 数字采用等宽数字，便于健康数据对齐 */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ---------- 焦点可见性（可访问性） ---------- */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   氛围层：渐变网格 + 纸质颗粒（自然有机方向）
+   ============================================================ */
+.app-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(52rem 40rem at 10% -10%, rgba(232, 85, 43, 0.13), transparent 58%),
+    radial-gradient(46rem 36rem at 104% 2%, rgba(126, 155, 120, 0.22), transparent 56%),
+    radial-gradient(44rem 44rem at 50% 122%, rgba(242, 166, 90, 0.18), transparent 58%),
+    radial-gradient(30rem 26rem at 84% 78%, rgba(228, 215, 190, 0.5), transparent 65%);
+}
+.app-atmosphere::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   设备外壳：桌面端居中成"手机"，移动端满屏
+   ============================================================ */
+#app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  max-width: var(--shell-max);
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-3);
+}
+
+@media (min-width: 480px) {
+  .app-shell {
+    min-height: calc(100vh - 48px);
+    margin: 24px 0;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+  }
+}
+
+.app-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 128px; /* 悬浮 Dock 留白 */
+  scrollbar-width: thin;
+}
+.app-main::-webkit-scrollbar {
+  width: 6px;
+}
+.app-main::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+}
+
+/* ---------- 顶部状态栏（拟真 iOS，增强 App 感） ---------- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-ink);
+}
+.status-bar .sb-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- 页面通用内边距 ---------- */
+.screen {
+  padding: 8px 22px 28px;
+}
+.screen-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 14px 0 22px;
+}
+.eyebrow {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+
+/* ============================================================
+   编排入场动效（v-reveal 指令 + IntersectionObserver）
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+  transition-delay: var(--d, 0ms);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* 页面切换过渡 */
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* ---------- 动效降级 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .page-enter-active,
+  .page-leave-active,
+  .page-enter-from,
+  .page-leave-to {
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

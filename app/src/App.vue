@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from '@/components/AppNav.vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
@@ -37,6 +37,16 @@ import ToastHost from '@/components/ToastHost.vue'
 
 const route = useRoute()
 const isBare = computed(() => route.meta.bare === true)
+
+// 滚动容器是 .app-main 而非 window，vue-router 的 scrollBehavior 管不到它，
+// 需要在路由切换时手动归零，否则新页面会继承上一个页面的滚动位置
+watch(
+  () => route.path,
+  () => {
+    const el = document.querySelector('.app-main')
+    if (el) el.scrollTop = 0
+  }
+)
 
 const clock = ref('09:41')
 let timer = null

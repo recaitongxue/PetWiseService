@@ -15,7 +15,7 @@
       <span class="user-avatar">{{ user.initials }}</span>
       <div class="user-info">
         <h2 class="user-name">{{ user.name }}</h2>
-        <p class="user-handle">{{ user.handle }}</p>
+        <p class="user-handle">{{ maskedPhone }}</p>
         <p class="user-bio">{{ user.bio }}</p>
       </div>
       <button class="edit-btn" type="button">编辑</button>
@@ -54,32 +54,39 @@
     <!-- 功能菜单 -->
     <section class="block" v-reveal="{ delay: 200 }">
       <div class="menu">
-        <button class="menu-row" type="button">
+        <router-link to="/records" class="menu-row">
           <span class="menu-ic sage"><AppIcon name="stethoscope" :size="20" /></span>
           <span class="menu-label">问诊记录</span>
+          <span class="menu-badge num">{{ consultRecords.length }}</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
-        </button>
-        <button class="menu-row" type="button">
+        </router-link>
+        <router-link to="/favorites" class="menu-row">
           <span class="menu-ic peach"><AppIcon name="bookmark" :size="20" /></span>
           <span class="menu-label">我的收藏</span>
+          <span class="menu-badge num">{{ favorites.length }}</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
-        </button>
-        <button class="menu-row" type="button">
+        </router-link>
+        <router-link to="/schedule" class="menu-row">
           <span class="menu-ic sand"><AppIcon name="calendar" :size="20" /></span>
           <span class="menu-label">提醒与日程</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
-        </button>
+        </router-link>
         <button class="menu-row" type="button" @click="fbOpen = true">
           <span class="menu-ic coral"><AppIcon name="comment" :size="20" /></span>
           <span class="menu-label">意见反馈</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
         </button>
-        <button class="menu-row" type="button">
+        <button class="menu-row" type="button" @click="aboutPetwise">
           <span class="menu-ic ink"><AppIcon name="sparkle" :size="20" /></span>
           <span class="menu-label">关于 Petwise</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
         </button>
       </div>
+
+      <button class="logout" type="button" @click="onLogout">
+        <AppIcon name="logout" :size="17" />
+        退出登录
+      </button>
     </section>
 
     <p class="version">Petwise v0.1 · 计算机视觉 × 大模型</p>
@@ -115,8 +122,9 @@
 import { ref } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { user, pets } from '@/data/mock'
-import { submitFeedback } from '@/data/ops'
+import { useRouter } from 'vue-router'
+import { user, pets, consultRecords, favorites } from '@/data/mock'
+import { submitFeedback, logout, getAuth } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const fbOpen = ref(false)
@@ -134,6 +142,24 @@ function sendFeedback() {
   fbText.value = ''
   fbOpen.value = false
   showToast('反馈已提交，感谢你的建议', { type: 'success' })
+}
+
+function aboutPetwise() {
+  showToast('Petwise v0.1 · 计算机视觉 × 大模型', { type: 'info' })
+}
+
+// 用户卡展示当前登录手机号（脱敏）
+const authPhone = getAuth()?.phone || ''
+const maskedPhone = authPhone
+  ? `${authPhone.slice(0, 3)}****${authPhone.slice(-4)}`
+  : user.handle
+
+// 退出登录：清登录态后回到登录页，并禁止返回上一个已登录页面
+const router = useRouter()
+function onLogout() {
+  logout()
+  showToast('已退出登录')
+  router.replace('/login')
 }
 </script>
 
@@ -349,7 +375,33 @@ function sendFeedback() {
 .sheet-leave-to { opacity: 0; }
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet { transform: translateY(40%); }
-.menu-label { flex: 1; text-align: left; font-weight: 600; font-size: 15px; }
+.menu-label { flex: 1; text-align: left; font-weight: 700; font-size: 15px; }
+
+/* 退出登录：与菜单分离，弱化但不隐藏 */
+.logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.logout:active { transform: scale(0.978); }
+/* 菜单右侧计数：弱化处理，避免制造"未读红点"式的焦虑感 */
+.menu-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-faint);
+  padding-right: 4px;
+}
 .menu-arrow { color: var(--color-muted); transform: rotate(180deg); opacity: 0.5; }
 
 .version {

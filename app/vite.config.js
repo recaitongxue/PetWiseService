@@ -10,7 +10,10 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5173
+    port: 5173,
+    allowedHosts: true
+    // 注意：不要硬编码 hmr.clientPort，否则本地开发的 HMR WebSocket 会连错端口
+    // （反向代理部署时如需 wss，可在 nginx 层转发 /@vite/client 的 ws）
   },
   build: {
     target: 'es2018',

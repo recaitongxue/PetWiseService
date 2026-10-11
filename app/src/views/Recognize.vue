@@ -87,7 +87,7 @@
           <button class="rf-btn" type="button" @click="saveRecord">保存记录</button>
           <router-link :to="`/breed/${breedPath}`" class="rf-btn">品种百科</router-link>
           <router-link
-            :to="{ path: '/consult', query: { pet: result.title, note: result.note } }"
+            :to="{ path: '/consult/ai', query: { pet: result.title, note: result.note } }"
             class="rf-btn accent"
           >就结果问医生 →</router-link>
         </div>

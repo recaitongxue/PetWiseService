@@ -18,7 +18,7 @@
     </div>
 
     <div class="splash-foot" v-reveal="{ delay: 300 }">
-      <button class="enter-btn" type="button" @click="enter">进入 Petwise</button>
+      <button class="enter-btn" type="button" @click="enter">{{ authed ? '进入 Petwise' : '开始使用' }}</button>
       <span class="enter-sub">拍照识别 · 智能问诊 · 宠物社区</span>
     </div>
   </section>
@@ -27,10 +27,14 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
+import { isAuthed } from '@/data/ops'
 
 const router = useRouter()
+// 已登录直接进首页，未登录先引导登录（主流 App 的冷启动分流）
+const authed = isAuthed()
+
 function enter() {
-  router.replace('/home')
+  router.replace(authed ? '/home' : '/login')
 }
 </script>
 

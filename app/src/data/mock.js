@@ -106,22 +106,39 @@ export const petWeightHistory = {
 }
 
 // 每只宠物的免疫与护理日程
+// type: vaccine 疫苗 / deworm 驱虫 / check 体检 / weight 称重 / groom 洗护 / other 自定义
+// cycle: 展示用周期说明，便于用户理解为什么会有这条提醒
 export const petSchedule = {
   mochi: [
-    { date: '2026-11-02', title: '年度疫苗（猫三联）', type: 'vaccine', state: 'watch' },
-    { date: '2026-10-20', title: '体内外驱虫', type: 'deworm', state: 'good' },
-    { date: '2026-09-12', title: '体态评估', type: 'check', state: 'good' }
+    { id: 'm1', date: '2026-10-18', title: '体外驱虫', type: 'deworm', cycle: '每月一次' },
+    { id: 'm2', date: '2026-10-20', title: '体内外驱虫', type: 'deworm', cycle: '每季度一次' },
+    { id: 'm3', date: '2026-11-02', title: '年度疫苗（猫三联）', type: 'vaccine', cycle: '每年一次' },
+    { id: 'm4', date: '2026-11-20', title: '口腔护理检查', type: 'check', cycle: '每半年一次' },
+    { id: 'm5', date: '2026-09-12', title: '体态评估', type: 'check', cycle: '每半年一次' }
   ],
   doudou: [
-    { date: '2026-10-22', title: '狂犬疫苗加强', type: 'vaccine', state: 'watch' },
-    { date: '2026-10-15', title: '体重复查', type: 'weight', state: 'good' },
-    { date: '2026-08-03', title: '体内外驱虫', type: 'deworm', state: 'good' }
+    { id: 'd1', date: '2026-10-15', title: '体重复查', type: 'weight', cycle: '每月一次' },
+    { id: 'd2', date: '2026-10-22', title: '狂犬疫苗加强', type: 'vaccine', cycle: '每年一次' },
+    { id: 'd3', date: '2026-11-05', title: '洗澡与吹干护理', type: 'groom', cycle: '每月一次' },
+    { id: 'd4', date: '2026-12-01', title: '髋关节影像复查', type: 'check', cycle: '每年一次' },
+    { id: 'd5', date: '2026-08-03', title: '体内外驱虫', type: 'deworm', cycle: '每季度一次' }
   ]
+}
+
+// 日程类型元信息：图标、中文名与强调色
+export const scheduleTypes = {
+  vaccine: { label: '疫苗', icon: 'calendar-check', tone: 'coral' },
+  deworm: { label: '驱虫', icon: 'pill', tone: 'sage' },
+  check: { label: '体检', icon: 'stethoscope', tone: 'sand' },
+  weight: { label: '称重', icon: 'scale', tone: 'peach' },
+  groom: { label: '洗护', icon: 'sparkle', tone: 'sage' },
+  other: { label: '自定义', icon: 'calendar', tone: 'ink' }
 }
 
 export const quickActions = [
   { id: 'scan', label: '拍照识别', sub: '品种 · 体态 · 状态', icon: 'camera', to: '/recognize', accent: true },
-  { id: 'ask', label: '智能问诊', sub: 'AI 兽医在线', icon: 'stethoscope', to: '/consult' },
+  { id: 'ask', label: '智能问诊', sub: 'AI 免费 3 次/日', icon: 'stethoscope', to: '/consult/ai' },
+  { id: 'doctor', label: '找真人医生', sub: '图文 · 电话 · 视频', icon: 'verified', to: '/doctors' },
   { id: 'community', label: '宠物社区', sub: '晒一晒它', icon: 'paw', to: '/community' },
   { id: 'record', label: '健康档案', sub: '记录与日程', icon: 'heart', to: '/pet/mochi' }
 ]
@@ -279,6 +296,436 @@ export const consultSuggestions = [
   '猫咪最近不爱吃饭怎么办？',
   '帮我看看这张皮肤照片',
   '幼猫疫苗时间表'
+]
+
+/* ============================================================
+   问诊模块：科室 / 医生 / AI 分诊规则 / 症状快捷标签
+   ============================================================ */
+
+// 科室（医生筛选）
+export const departments = [
+  { id: 'all', label: '全部', icon: 'stethoscope' },
+  { id: 'internal', label: '犬猫内科', icon: 'heart' },
+  { id: 'surgery', label: '外科骨科', icon: 'firstaid' },
+  { id: 'derma', label: '皮肤病', icon: 'sparkle' },
+  { id: 'er', label: '急诊重症', icon: 'alert' },
+  { id: 'exotic', label: '异宠专科', icon: 'paw' },
+  { id: 'nutrition', label: '营养体重', icon: 'scale' },
+  { id: 'eye', label: '眼科', icon: 'eye' }
+]
+
+// 三种问诊方式（价格与说明）
+export const consultModes = [
+  {
+    id: 'text',
+    label: '图文问诊',
+    icon: 'comment',
+    price: 19,
+    desc: '上传照片与描述，医生 24h 内回复，可追问 3 次',
+    eta: '平均 8 分钟接诊'
+  },
+  {
+    id: 'voice',
+    label: '电话问诊',
+    icon: 'phone',
+    price: 39,
+    desc: '预约时段后医生直接致电，适合需要详细沟通',
+    eta: '15 分钟通话'
+  },
+  {
+    id: 'video',
+    label: '视频问诊',
+    icon: 'video',
+    price: 59,
+    desc: '面对面看诊，可实时展示患处与宠物状态',
+    eta: '20 分钟通话'
+  }
+]
+
+// 医生库（演示数据，接入后端后由接口下发）
+export const doctors = [
+  {
+    id: 'd1',
+    name: '陈静',
+    title: '主治医师',
+    dept: 'internal',
+    deptLabel: '犬猫内科',
+    hospital: 'Petwise 合作动物医院 · 城西院区',
+    years: 9,
+    rating: 4.9,
+    consults: 3240,
+    online: true,
+    responseMin: 6,
+    tags: ['猫科消化', '呼吸道', '慢病管理'],
+    good: ['猫传腹', '慢性呕吐', '软便腹泻'],
+    intro: '专注猫科内科九年，擅长消化系统与慢性肾病的长程管理，主张「能不用药就不用药」。',
+    certs: ['执业兽医师资格证', '中国畜牧兽医学会会员'],
+    slot: '今日 14:00–22:00 可约',
+    reviews: [
+      { user: '橘座本座', rating: 5, text: '猫呕吐三天，医生问得很细，最后只是毛球，省了一趟医院。', time: '2 天前' },
+      { user: '豆豆妈', rating: 5, text: '有耐心，把用药剂量写得清清楚楚，还提醒了复诊时间。', time: '5 天前' },
+      { user: '阿黄', rating: 4, text: '回复稍慢一点，但建议很专业。', time: '1 周前' }
+    ]
+  },
+  {
+    id: 'd2',
+    name: '王铮',
+    title: '主任医师',
+    dept: 'er',
+    deptLabel: '急诊重症',
+    hospital: 'Petwise 合作动物医院 · 24h 急诊中心',
+    years: 14,
+    rating: 4.8,
+    consults: 1580,
+    online: true,
+    responseMin: 2,
+    tags: ['急诊分诊', '中毒急救', '术后监护'],
+    good: ['误食中毒', '呼吸困难', '急性呕吐'],
+    intro: '急诊一线十四年，处理过大量误食异物、中暑与急性中毒病例，擅长快速判断是否需要立即线下就诊。',
+    certs: ['执业兽医师资格证', '急诊急救专项认证'],
+    slot: '全天候值班 · 平均 2 分钟响应',
+    reviews: [
+      { user: '小满', rating: 5, text: '半夜狗吃了巧克力，医生两分钟就回，指导催吐后送医，救回来了。', time: '3 天前' },
+      { user: '柯基控', rating: 5, text: '判断很果断，直接告诉我该去急诊而不是观察。', time: '6 天前' }
+    ]
+  },
+  {
+    id: 'd3',
+    name: '苏晴',
+    title: '主治医师',
+    dept: 'derma',
+    deptLabel: '皮肤病',
+    hospital: 'Petwise 合作动物医院 · 城中院区',
+    years: 7,
+    rating: 4.9,
+    consults: 4820,
+    online: true,
+    responseMin: 9,
+    tags: ['真菌感染', '过敏性皮炎', '耳道疾病'],
+    good: ['反复挠耳', '脱毛斑秃', '皮肤红疹'],
+    intro: '皮肤科方向，主张先用显微镜检查确诊再用药，反对盲目上激素。',
+    certs: ['执业兽医师资格证', '皮肤病专科进修'],
+    slot: '今日 10:00–20:00 可约',
+    reviews: [
+      { user: '麻薯妈', rating: 5, text: '拍照过去就看出是耳螨，用药一周就好了。', time: '1 天前' },
+      { user: '雪球', rating: 5, text: '讲清楚了为什么会反复过敏，不是只开药。', time: '4 天前' }
+    ]
+  },
+  {
+    id: 'd4',
+    name: '李维',
+    title: '副主任医师',
+    dept: 'surgery',
+    deptLabel: '外科骨科',
+    hospital: 'Petwise 合作动物医院 · 城西院区',
+    years: 12,
+    rating: 4.7,
+    consults: 2110,
+    online: false,
+    responseMin: 25,
+    tags: ['骨折固定', '软组织手术', '术后康复'],
+    good: ['跛行', '伤口处理', '术后护理'],
+    intro: '骨科与软组织外科，关注术后疼痛管理与康复训练方案的制定。',
+    certs: ['执业兽医师资格证', '外科专科认证'],
+    slot: '明日 09:00 起可约',
+    reviews: [
+      { user: '阿橘', rating: 5, text: '术后护理讲得很细，恢复得很好。', time: '2 周前' }
+    ]
+  },
+  {
+    id: 'd5',
+    name: '林岚',
+    title: '主治医师',
+    dept: 'nutrition',
+    deptLabel: '营养体重',
+    hospital: 'Petwise 合作动物医院 · 线上门诊',
+    years: 8,
+    rating: 4.9,
+    consults: 3960,
+    online: true,
+    responseMin: 12,
+    tags: ['体重管理', '处方粮', '幼宠喂养'],
+    good: ['肥胖', '挑食', '换粮腹泻'],
+    intro: '营养方向，为超重宠物制定分阶段减重计划，反对一刀切断食。',
+    certs: ['执业兽医师资格证', '宠物营养师认证'],
+    slot: '今日 13:00–21:00 可约',
+    reviews: [
+      { user: '豆豆妈', rating: 5, text: '柯基减重两个月掉了 1.4kg，方案可执行。', time: '3 天前' }
+    ]
+  },
+  {
+    id: 'd6',
+    name: '顾南',
+    title: '主治医师',
+    dept: 'exotic',
+    deptLabel: '异宠专科',
+    hospital: 'Petwise 合作动物医院 · 异宠中心',
+    years: 6,
+    rating: 4.6,
+    consults: 890,
+    online: false,
+    responseMin: 40,
+    tags: ['兔', '鸟', '爬行动物'],
+    good: ['兔子胃肠停滞', '鹦鹉呼吸道', '龟壳问题'],
+    intro: '异宠方向，接诊兔、鸟、爬行类，擅长解读异宠的隐匿症状。',
+    certs: ['执业兽医师资格证', '异宠诊疗进修'],
+    slot: '需预约 · 每周二四六',
+    reviews: [
+      { user: '兔几', rating: 5, text: '兔子不吃东西，医生一眼看出是胃肠停滞，处理很及时。', time: '1 周前' }
+    ]
+  },
+  {
+    id: 'd7',
+    name: '周牧',
+    title: '主治医师',
+    dept: 'eye',
+    deptLabel: '眼科',
+    hospital: 'Petwise 合作动物医院 · 城中院区',
+    years: 10,
+    rating: 4.7,
+    consults: 1640,
+    online: true,
+    responseMin: 15,
+    tags: ['角膜溃疡', '白内障', '泪痕'],
+    good: ['眼部分泌物', '眯眼流泪', '眼球发白'],
+    intro: '眼科方向，配备裂隙灯与眼压检查，注重早期干预避免视力损伤。',
+    certs: ['执业兽医师资格证', '眼科专项进修'],
+    slot: '今日 15:00–21:00 可约',
+    reviews: [{ user: '布偶控', rating: 5, text: '泪痕问题解决了，讲了日常清洁手法。', time: '5 天前' }]
+  }
+]
+
+/* ============================================================
+   结构化预问诊：部位 → 症状 → 时长 / 严重程度 / 伴随症状
+   ============================================================ */
+
+// 部位 → 症状（redFlag: true 为高危信号，命中即中断问卷并引导急诊）
+export const bodyParts = [
+  {
+    id: 'head',
+    label: '头颈五官',
+    icon: 'paw',
+    symptoms: [
+      { id: 'ear-itch', label: '频繁挠耳朵' },
+      { id: 'ear-discharge', label: '耳道有分泌物或异味' },
+      { id: 'eye-discharge', label: '眼屎增多 / 眯眼' },
+      { id: 'sneeze', label: '打喷嚏 / 流鼻涕' },
+      { id: 'mouth', label: '口臭 / 流涎 / 拒食硬物' },
+      { id: 'head-tilt', label: '头部歪斜 / 转圈' }
+    ]
+  },
+  {
+    id: 'skin',
+    label: '皮肤被毛',
+    icon: 'sparkle',
+    symptoms: [
+      { id: 'skin-itch', label: '频繁挠抓或蹭蹭' },
+      { id: 'skin-loss', label: '脱毛 / 斑秃' },
+      { id: 'skin-rash', label: '红疹 / 皮屑增多' },
+      { id: 'skin-lump', label: '摸到肿块' },
+      { id: 'skin-lick', label: '持续舔同一部位' }
+    ]
+  },
+  {
+    id: 'digest',
+    label: '消化系统',
+    icon: 'heart',
+    symptoms: [
+      { id: 'vomit', label: '呕吐' },
+      { id: 'diarrhea', label: '软便 / 腹泻' },
+      { id: 'appetite', label: '食欲下降 / 拒食' },
+      { id: 'constipation', label: '便秘 / 排便困难' },
+      { id: 'blood-stool', label: '便中带血', redFlag: false, weight: 2 }
+    ]
+  },
+  {
+    id: 'breath',
+    label: '呼吸循环',
+    icon: 'heart',
+    symptoms: [
+      { id: 'cough', label: '咳嗽' },
+      { id: 'breath-fast', label: '呼吸急促', weight: 2 },
+      { id: 'breath-open', label: '张嘴呼吸 / 喘不上气', redFlag: true },
+      { id: 'pale', label: '舌色发白或发紫', redFlag: true },
+      { id: 'faint', label: '运动后虚脱 / 晕厥', redFlag: true }
+    ]
+  },
+  {
+    id: 'limb',
+    label: '四肢骨骼',
+    icon: 'paw',
+    symptoms: [
+      { id: 'lame', label: '跛行 / 抬腿' },
+      { id: 'no-jump', label: '不愿跳跃或上下楼' },
+      { id: 'joint', label: '关节肿胀 / 触碰疼痛' },
+      { id: 'paw', label: '爪垫受伤 / 趾间红肿' },
+      { id: 'paralysis', label: '后肢无力 / 无法站立', redFlag: true }
+    ]
+  },
+  {
+    id: 'urinary',
+    label: '泌尿系统',
+    icon: 'heart',
+    symptoms: [
+      { id: 'urine-freq', label: '尿频 / 到处乱尿' },
+      { id: 'urine-blood', label: '尿中带血' },
+      { id: 'urine-block', label: '排尿困难 / 尿不出来', redFlag: true },
+      { id: 'drink', label: '饮水量明显变化' }
+    ]
+  },
+  {
+    id: 'behavior',
+    label: '行为精神',
+    icon: 'sparkle',
+    symptoms: [
+      { id: 'spirit-low', label: '精神萎靡 / 嗜睡' },
+      { id: 'hide', label: '躲藏 / 不愿互动' },
+      { id: 'aggression', label: '性情改变 / 攻击性' },
+      { id: 'fit', label: '抽搐 / 意识丧失', redFlag: true }
+    ]
+  },
+  {
+    id: 'other',
+    label: '其他',
+    icon: 'notes',
+    symptoms: [
+      { id: 'weight-loss', label: '体重明显下降' },
+      { id: 'weight-gain', label: '体重持续上升' },
+      { id: 'poison', label: '疑似误食异物或毒物', redFlag: true },
+      { id: 'trauma', label: '外伤 / 车祸 / 坠落', redFlag: true },
+      { id: 'postop', label: '术后或产后护理' }
+    ]
+  }
+]
+
+// 持续时间（w = 分诊权重）
+export const durations = [
+  { id: 'today', label: '今天刚开始', w: 0 },
+  { id: '2-3d', label: '2–3 天', w: 1 },
+  { id: '1w', label: '约一周', w: 2 },
+  { id: '1w+', label: '超过一周', w: 3 }
+]
+
+// 严重程度
+export const severities = [
+  { id: 'mild', label: '轻微 · 吃喝玩正常', w: 0 },
+  { id: 'mid', label: '明显不适 · 但能进食', w: 2 },
+  { id: 'severe', label: '精神差 · 不吃不喝', w: 4 }
+]
+
+// 伴随症状（多选，累加权重）
+export const accompanyOptions = [
+  { id: 'spirit', label: '精神萎靡', w: 3 },
+  { id: 'appetite', label: '食欲下降', w: 3 },
+  { id: 'fever', label: '身体发热 / 耳朵发烫', w: 2 },
+  { id: 'vomit-ac', label: '呕吐', w: 2 },
+  { id: 'diarrhea-ac', label: '腹泻', w: 2 },
+  { id: 'drink-ac', label: '饮水异常', w: 1 },
+  { id: 'sleep', label: '睡眠增多 / 躲藏', w: 1 }
+]
+
+// 症状快捷标签（按部位分组，点击即填入描述）
+export const symptomGroups = [
+  { group: '消化', items: ['呕吐', '软便腹泻', '食欲下降', '便秘'] },
+  { group: '皮肤', items: ['频繁挠抓', '脱毛斑秃', '皮肤红疹', '皮屑增多'] },
+  { group: '头颈', items: ['挠耳朵', '眼屎增多', '打喷嚏', '口臭流涎'] },
+  { group: '全身', items: ['精神萎靡', '跛行', '体重骤变', '呼吸异常'] }
+]
+
+// AI 分诊规则：命中关键词 → 分级（emergency / urgent / home）
+export const triageRules = [
+  {
+    level: 'emergency',
+    keywords: ['呼吸困难', '张嘴呼吸', '抽搐', '癫痫', '大出血', '中毒', '巧克力', '误食', '难产', '骨折', '昏迷', '中暑', '尿不出来', '尿闭', '肚子胀硬', '车祸', '高空坠落'],
+    label: '疑似急症',
+    short: '建议立即线下急诊',
+    advice: '这类情况线上问诊会延误治疗。请立即联系最近的 24 小时动物医院，途中保持宠物安静与体温。',
+    actions: ['立即前往最近的急诊医院', '途中不要强行喂水喂食', '如为误食，带上包装或残留物']
+  },
+  {
+    level: 'urgent',
+    keywords: ['呕吐', '拉血', '带血', '拒食', '不吃不喝', '发热', '发烧', '跛行', '尿频', '尿血', '流脓', '肿大', '一直睡', '精神萎靡', '咳嗽'],
+    label: '建议尽快就诊',
+    short: '24 小时内预约医生',
+    advice: '症状需要专业检查才能确诊。建议 24 小时内完成一次面诊或线上问诊，不要自行用药。',
+    actions: ['记录症状开始时间与频次', '拍摄清晰照片或视频备用', '暂停自行给药，避免掩盖症状']
+  },
+  {
+    level: 'home',
+    keywords: ['掉毛', '梳毛', '皮屑', '轻微', '偶尔', '疫苗', '驱虫', '体重', '护理', '营养', '换粮'],
+    label: '可先居家观察',
+    short: '护理 + 观察 3 天',
+    advice: '目前未见明确危险信号。可按建议居家护理并观察 3 天，若加重或出现新症状再就诊。',
+    actions: ['按建议调整护理方式', '每日同一时间记录状态', '3 天未缓解则转为线上问诊']
+  }
+]
+
+// 问诊记录（我的 → 问诊记录）
+// type: ai 智能问诊 | human 真人问诊；state: closed 已完成 | pending 待医生回复 | reviewing 待评价
+export const consultRecords = [
+  {
+    id: 'q1',
+    date: '2026-10-09',
+    petId: 'mochi',
+    title: '软便两天但精神正常',
+    preview: '精神食欲正常时可先观察，注意饮水与保暖；若持续 3 天以上或带血需就诊。',
+    state: 'closed',
+    type: 'ai',
+    level: 'home'
+  },
+  {
+    id: 'q2',
+    date: '2026-10-08',
+    petId: 'mochi',
+    title: '反复挠右耳，耳道有褐色分泌物',
+    preview: '考虑耳螨或真菌感染，医生已给出清洁步骤与用药建议，一周后复查。',
+    state: 'closed',
+    type: 'human',
+    mode: 'text',
+    doctorId: 'd3',
+    level: 'urgent',
+    rated: 5
+  },
+  {
+    id: 'q3',
+    date: '2026-10-10',
+    petId: 'doudou',
+    title: '昨晚呕吐一次，今晨精神尚可',
+    preview: '已提交给王铮医生，等待接诊中。医生平均 2 分钟响应，请留意消息提醒。',
+    state: 'pending',
+    type: 'human',
+    mode: 'video',
+    doctorId: 'd2',
+    level: 'urgent'
+  },
+  {
+    id: 'q4',
+    date: '2026-09-28',
+    petId: 'doudou',
+    title: '柯基体重是否超标',
+    preview: '11.2kg 处于柯基正常区间上沿，建议控制零食并增加每日散步量。',
+    state: 'closed',
+    type: 'ai',
+    level: 'home'
+  },
+  {
+    id: 'q5',
+    date: '2026-09-15',
+    petId: 'mochi',
+    title: '换季掉毛明显',
+    preview: '每日梳毛 5 分钟促进血液循环，可减少毛球症；若出现斑秃需排查皮肤病。',
+    state: 'closed',
+    type: 'ai',
+    level: 'home'
+  }
+]
+
+// 我的收藏（品种百科 / 社区帖子 / 贴士）
+export const favorites = [
+  { id: 'f1', kind: 'breed', title: '英国短毛猫', desc: '温和沉静 · 寿命 12–15 年', to: '/breed/b-bsh' },
+  { id: 'f2', kind: 'breed', title: '柯基犬', desc: '机警聪明 · 需关注腰椎', to: '/breed/b-corgi' },
+  { id: 'f3', kind: 'post', title: '麻薯第一次跳上猫爬架顶端', desc: '阿橘的日常 · 128 赞', to: '/community' },
+  { id: 'f4', kind: 'tip', title: '换季掉毛期护理', desc: '每日梳毛 5 分钟，减少毛球症', to: '/home' }
 ]
 
 // 社区 / 朋友圈 feed

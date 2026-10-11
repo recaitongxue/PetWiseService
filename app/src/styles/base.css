@@ -63,7 +63,7 @@ ul {
 }
 
 /* ============================================================
-   氛围层：渐变网格 + 纸质颗粒（自然有机方向）
+   氛围层：两团极淡的环境光，不做颗粒纹理（保持画面干净）
    ============================================================ */
 .app-atmosphere {
   position: fixed;
@@ -71,18 +71,8 @@ ul {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(52rem 40rem at 10% -10%, rgba(232, 85, 43, 0.13), transparent 58%),
-    radial-gradient(46rem 36rem at 104% 2%, rgba(126, 155, 120, 0.22), transparent 56%),
-    radial-gradient(44rem 44rem at 50% 122%, rgba(242, 166, 90, 0.18), transparent 58%),
-    radial-gradient(30rem 26rem at 84% 78%, rgba(228, 215, 190, 0.5), transparent 65%);
-}
-.app-atmosphere::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.06;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    radial-gradient(46rem 34rem at 8% -12%, rgba(232, 85, 43, 0.07), transparent 60%),
+    radial-gradient(42rem 32rem at 102% 0%, rgba(126, 155, 120, 0.13), transparent 58%);
 }
 
 /* ============================================================
@@ -91,16 +81,22 @@ ul {
 #app {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
+  /* 滚动交给内部的 .app-main，页面本身不滚 */
+  overflow: hidden;
 }
 
+/* 外壳高度必须"锁死"（height 而非 min-height）：否则内容会把外壳撑高，
+   整页随之滚动，底部 Dock 就不再固定了 */
 .app-shell {
   position: relative;
   width: 100%;
   max-width: var(--shell-max);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh; /* 移动端浏览器地址栏收起时仍准确 */
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -110,7 +106,8 @@ ul {
 
 @media (min-width: 480px) {
   .app-shell {
-    min-height: calc(100vh - 48px);
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
     margin: 24px 0;
     border-radius: var(--radius-xl);
     border: 1px solid var(--color-border);
@@ -118,10 +115,13 @@ ul {
 }
 
 .app-main {
-  flex: 1;
+  flex: 1 1 auto;
+  /* 关键：flex 子项默认 min-height:auto 会被内容撑高，必须显式归零才能内部滚动 */
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding-bottom: 128px; /* 悬浮 Dock 留白 */
   scrollbar-width: thin;
 }
@@ -152,20 +152,53 @@ ul {
 
 /* ---------- 页面通用内边距 ---------- */
 .screen {
-  padding: 8px 22px 28px;
+  padding: 8px 20px 28px;
 }
 .screen-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin: 14px 0 22px;
+  margin: 14px 0 20px;
 }
 .eyebrow {
   font-size: var(--fs-xs);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 700;
   color: var(--color-accent-ink);
+}
+
+/* ============================================================
+   统一卡片语言：发丝描边 + 极轻投影
+   全站卡片共用，避免各页面自定义导致的视觉不一致
+   ============================================================ */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--hairline);
+}
+/* 可点击卡片：统一按压反馈（微交互，150–300ms） */
+.card-tap {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.card-tap:active {
+  transform: scale(0.978);
+}
+
+/* 极浅分隔线，替代纯黑实线 */
+.divider {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+}
+
+/* 触摸目标兜底：交互元素不小于 44px（无障碍基线） */
+.tap {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* ============================================================

@@ -348,7 +348,7 @@ function initial(name) {
   place-items: center;
   color: #fff;
   background: linear-gradient(150deg, var(--color-accent), var(--color-accent-ink));
-  box-shadow: 0 10px 26px rgba(232, 85, 43, 0.45);
+  box-shadow: 0 8px 20px rgba(232, 85, 43, 0.32);
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .fab:active { transform: scale(0.92); }

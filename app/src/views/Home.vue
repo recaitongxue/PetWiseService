@@ -5,7 +5,7 @@
       <div>
         <p class="eyebrow num">{{ today }}</p>
         <h1 class="greet">
-          {{ greeting }}，<span class="greet-name">{{ user.name.replace(/.$/, '·') }}</span>
+          {{ greeting }}，<span class="greet-name">{{ user.name }}</span>
         </h1>
       </div>
       <button class="bell" type="button" aria-label="通知" @click="showToast('暂无新通知')">
@@ -77,12 +77,21 @@
       </div>
     </article>
 
+    <!-- 每日贴士：一行轻量提示，不占独立区块 -->
+    <button class="tip-line" type="button" v-reveal="{ delay: 100 }" @click="nextTip">
+      <span class="tl-ic"><AppIcon name="sparkle" :size="14" /></span>
+      <span class="tl-text"><b>{{ tip.tag }}</b> · {{ tip.title }}</span>
+      <AppIcon name="back" :size="13" class="tl-arrow" />
+    </button>
+
     <!-- 今日提醒 -->
     <section class="sec" v-reveal="{ delay: 120 }">
       <div class="sec-head">
         <span class="sec-idx num">01</span>
         <h3 class="sec-t">今日提醒</h3>
-        <span class="sec-hint">{{ pet.name }}</span>
+        <router-link to="/schedule" class="sec-link">
+          全部日程 <AppIcon name="back" :size="12" />
+        </router-link>
       </div>
       <div class="reminders">
         <div v-for="r in reminders" :key="r.label" class="reminder" :class="r.state">
@@ -141,20 +150,7 @@
       </div>
     </section>
 
-    <!-- 每日贴士 -->
-    <section class="sec" v-reveal="{ delay: 240 }">
-      <div class="sec-head">
-        <span class="sec-idx num">04</span>
-        <h3 class="sec-t">每日贴士</h3>
-      </div>
-      <article class="tip">
-        <span class="tip-tag">{{ tip.tag }}</span>
-        <h4 class="tip-title">{{ tip.title }}</h4>
-        <p class="tip-body">{{ tip.body }}</p>
-      </article>
-    </section>
-
-    <!-- 社区引流 -->
+    <!-- 社区引流：收敛为描边卡，不再用大块渐变 -->
     <router-link to="/community" class="discover" v-reveal="{ delay: 280 }">
       <div>
         <p class="discover-eyebrow">PET COMMUNITY</p>
@@ -199,7 +195,12 @@ function dismissAll() {
   showToast('已收起平台公告')
 }
 
-const tip = tips[0]
+// 贴士轮播：一行提示点击即切换，避免占用独立区块
+const tipIndex = ref(0)
+const tip = computed(() => tips[tipIndex.value % tips.length])
+function nextTip() {
+  tipIndex.value = (tipIndex.value + 1) % tips.length
+}
 
 const today = computed(() => {
   const d = new Date()
@@ -268,6 +269,7 @@ function barState(label) {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-soft);
+  border: 1px solid var(--hairline);
   overflow: hidden;
 }
 .ann-row {
@@ -374,19 +376,22 @@ function barState(label) {
   align-items: center;
   gap: 8px;
   background: var(--grad-ink);
-  border-radius: 32px;
-  padding: 26px 22px;
+  border-radius: var(--radius-xl);
+  padding: 24px 20px;
   overflow: hidden;
   box-shadow: var(--shadow-2);
   color: var(--color-surface);
 }
+/* 单层极淡环境光，避免多团渐变叠加造成的"渐变过载" */
 .hero-deco {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(16rem 12rem at 88% -10%, rgba(232, 85, 43, 0.35), transparent 62%),
-    radial-gradient(14rem 12rem at -6% 110%, rgba(126, 155, 120, 0.4), transparent 60%);
+  background: radial-gradient(
+    18rem 14rem at 90% -14%,
+    rgba(232, 85, 43, 0.22),
+    transparent 62%
+  );
 }
 .hero-left {
   position: relative;
@@ -445,7 +450,7 @@ function barState(label) {
 .hero-ava {
   display: block;
   border-radius: 50%;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
 }
 .hero-ring {
   position: absolute;
@@ -486,6 +491,19 @@ function barState(label) {
   color: var(--color-faint);
   text-transform: uppercase;
 }
+/* 区块右上「查看全部」：统一为可点击的弱强调文字 */
+.sec-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.sec-link:active { color: var(--color-accent-ink); }
+.sec-link svg { transform: rotate(180deg); }
 
 /* ---------- 今日提醒 ---------- */
 .reminders { display: flex; flex-direction: column; gap: 10px; }
@@ -494,9 +512,10 @@ function barState(label) {
   align-items: center;
   gap: 12px;
   padding: 13px 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-soft);
+  border: 1px solid var(--hairline);
 }
 .rem-ic {
   width: 38px;
@@ -533,10 +552,11 @@ function barState(label) {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-soft);
+  border: 1px solid var(--hairline);
   transition: transform var(--dur-fast) var(--ease-out);
   min-height: 96px;
 }
-.q-tile:active { transform: scale(0.97); }
+.q-tile:active { transform: scale(0.978); }
 .q-ic {
   width: 40px;
   height: 40px;
@@ -552,7 +572,7 @@ function barState(label) {
 .q-tile.accent {
   background: var(--grad-coral);
   color: #fff;
-  box-shadow: 0 14px 30px rgba(214, 80, 42, 0.35);
+  box-shadow: 0 10px 22px rgba(214, 80, 42, 0.26);
 }
 .q-tile.accent .q-ic { background: rgba(255, 255, 255, 0.2); color: #fff; }
 .q-tile.accent .q-sub { color: rgba(255, 255, 255, 0.8); }
@@ -566,6 +586,7 @@ function barState(label) {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-soft);
+  border: 1px solid var(--hairline);
 }
 .trend-score {
   display: flex;
@@ -625,43 +646,54 @@ function barState(label) {
 .t-bar.watch { background: linear-gradient(180deg, #f2c26b, #d9952b); }
 .t-day { font-size: 11px; color: var(--color-muted); font-weight: 600; }
 
-/* ---------- 贴士 ---------- */
-.tip {
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
+/* ---------- 贴士：一行轻量提示条 ---------- */
+.tip-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
   background: var(--color-sage-soft);
+  border: 1px solid var(--hairline);
+  text-align: left;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
-.tip-tag {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--color-accent-ink);
-  text-transform: uppercase;
+.tip-line:active { transform: scale(0.978); }
+.tl-ic {
+  display: grid;
+  place-items: center;
+  color: var(--color-good);
+  flex-shrink: 0;
 }
-.tip-title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--fs-md);
-  margin: 6px 0;
-}
-.tip-body {
-  font-size: 14px;
+.tl-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   color: var(--color-ink-2);
-  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.tl-text b { color: var(--color-ink); font-weight: 700; }
+.tl-arrow { color: var(--color-faint); transform: rotate(180deg); flex-shrink: 0; }
 
-/* ---------- 社区引流 ---------- */
+/* ---------- 社区引流：描边卡，克制处理 ---------- */
 .discover {
-  margin-top: 32px;
+  margin-top: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 22px;
+  padding: 18px 20px;
   border-radius: var(--radius-lg);
-  background: var(--grad-peach);
-  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
   box-shadow: var(--shadow-soft);
+  color: var(--color-ink);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
+.discover:active { transform: scale(0.978); }
 .discover-eyebrow {
   font-size: 10px;
   letter-spacing: 0.2em;

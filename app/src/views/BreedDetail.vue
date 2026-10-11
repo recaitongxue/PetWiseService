@@ -55,7 +55,7 @@
 
     <div class="bd-actions">
       <RouterLink
-        :to="{ path: '/consult', query: { pet: breed.name, note: `${breed.name}饲养与健康管理咨询` } }"
+        :to="{ path: '/consult/ai', query: { pet: breed.name, note: `${breed.name}饲养与健康管理咨询` } }"
         class="bd-cta"
       >就这个品种问一问</RouterLink>
     </div>

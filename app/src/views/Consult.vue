@@ -155,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
@@ -190,7 +190,8 @@ const placeholder = computed(() =>
 
 // 从拍照识别带入的上下文
 const ctx = reactive({ pet: route.query.pet || '', note: route.query.note || '' })
-if (ctx.pet) {
+function greetWithCtx() {
+  if (!ctx.pet) return
   messages.value.push({
     role: 'ai',
     text: `我已了解你刚识别的是「${ctx.pet}」。${
@@ -199,6 +200,18 @@ if (ctx.pet) {
     time: now()
   })
 }
+greetWithCtx()
+
+// 停留在问诊页时再次从识别页带参进入（组件复用，setup 不会重跑），需同步上下文
+watch(
+  () => route.query.pet,
+  (pet) => {
+    if (!pet || pet === ctx.pet) return
+    ctx.pet = pet
+    ctx.note = route.query.note || ''
+    greetWithCtx()
+  }
+)
 
 function now() {
   const d = new Date()

@@ -22,7 +22,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
   await wait(1400)
 
   // 1. AI 问诊页结构
-  await p.goto(BASE + '/consult', { waitUntil: 'networkidle' })
+  await p.goto(BASE + '/consult/ai', { waitUntil: 'networkidle' })
   await wait(500)
   ok('问诊页：宠物选择器', (await p.locator('.pet-chip').count()) >= 2)
   ok('问诊页：免费额度条', await p.locator('.quota').isVisible())

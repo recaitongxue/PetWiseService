@@ -25,7 +25,7 @@ async function nextStep(p) {
   await wait(1400)
 
   /* ========== 路径 A：普通症状 → 加权评分 ========== */
-  await p.goto(BASE + '/consult', { waitUntil: 'networkidle' })
+  await p.goto(BASE + '/consult/ai', { waitUntil: 'networkidle' })
   await wait(500)
   ok('问诊页显示结构化问诊入口', await p.locator('.guide-cta').isVisible())
 

@@ -11,7 +11,15 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: true
+    allowedHosts: true,
+    // 后端联调代理：本地起后端后，前端的 /api 请求转发过去，规避 CORS
+    // 目标地址可用环境变量覆盖：VITE_PROXY_TARGET=http://localhost:8080
+    proxy: {
+      '/api': {
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
+        changeOrigin: true
+      }
+    }
     // 注意：不要硬编码 hmr.clientPort，否则本地开发的 HMR WebSocket 会连错端口
     // （反向代理部署时如需 wss，可在 nginx 层转发 /@vite/client 的 ws）
   },

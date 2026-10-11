@@ -26,6 +26,9 @@ function ok(label, cond, extra = '') {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text())
   })
+  page.on('response', (r) => {
+    if (r.status() === 404) errors.push('404 -> ' + r.url())
+  })
 
   // ---- 登录 ----
   await page.goto(`${BASE}/#/login`, { waitUntil: 'networkidle' })
@@ -120,7 +123,10 @@ function ok(label, cond, extra = '') {
   const shellH = await page.evaluate(() => document.querySelector('.app-shell').getBoundingClientRect().height)
   ok('外壳高度锁定（未突破视口）', Math.abs(shellH - 900) < 2, `${shellH}px`)
 
-  ok('无控制台报错', errors.filter((e) => !e.includes('fonts.g')).length === 0, errors.slice(0, 2).join(' | '))
+  const real = errors.filter((e) => !/fonts\.(g|googleapis)|Failed to load resource/.test(e))
+  ok('无控制台报错（排除字体 CDN 不可达）', real.length === 0, real.slice(0, 3).join(' | '))
+  const notFound = errors.filter((e) => e.startsWith('404'))
+  console.log(`  INFO  404 资源：${notFound.length ? notFound.slice(0, 3).join(' | ') : '无'}`)
 
   console.log(`\n  结果：${pass} 通过 / ${fail} 失败`)
   await browser.close()

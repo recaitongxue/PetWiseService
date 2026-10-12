@@ -1,0 +1,37 @@
+# GPU 叠加层：与 compose.yml 合并使用
+#   docker compose -f infra/compose/compose.yml -f infra/compose/compose.gpu.yml up -d
+#
+# 前置条件：宿主机已安装 NVIDIA 驱动 + nvidia-container-toolkit
+
+services:
+  vision:
+    # 用 GPU 版依赖重新构建（EXTRAS 已在 Dockerfile 里区分 gpu=1）
+    build:
+      context: ../../services/vision
+      args:
+        GPU: "1"
+    environment:
+      PW_VISION_PROVIDERS: auto   # 检测到 CUDA 自动优先
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  agent:
+    build:
+      context: ../../services/agent
+      args:
+        EXTRAS: embedding         # 有显卡时可加载本地 embedding / rerank 模型
+    environment:
+      PW_AGENT_EMBEDDING_PROVIDER: ${PW_AGENT_EMBEDDING_PROVIDER:-local}
+      PW_AGENT_RERANK_STRATEGY: ${PW_AGENT_RERANK_STRATEGY:-cross-encoder}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

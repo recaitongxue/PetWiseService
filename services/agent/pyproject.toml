@@ -1,0 +1,43 @@
+[project]
+name = "petwise-agent"
+version = "0.1.0"
+description = "Petwise 问诊智能体：LangGraph 编排 + 宠物知识库检索 + 合规护栏"
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.2",
+    "redis>=5.0",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+# 真正要用本地 embedding / rerank 模型时安装（会带上 torch）
+embedding = ["sentence-transformers>=3.0", "torch>=2.3"]
+# LangGraph 编排（缺省时自动退化为等价的顺序执行）
+graph = ["langgraph>=0.2"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

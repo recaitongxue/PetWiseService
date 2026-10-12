@@ -1,0 +1,110 @@
+# 全栈 CPU 版：没有显卡也能一键起整套系统
+# 用法：
+#   docker compose -f infra/compose/compose.yml up -d
+#   docker compose -f infra/compose/compose.yml -f infra/compose/compose.gpu.yml up -d   # 有显卡时
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: petwise
+      POSTGRES_PASSWORD: petwise
+      POSTGRES_DB: petwise
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U petwise -d petwise"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: petwise
+      MINIO_ROOT_PASSWORD: petwise123
+    volumes:
+      - miniodata:/data
+
+  # ── 业务后端：唯一对外网关注入口 ────────────────────────
+  api:
+    build:
+      context: ../../services/api
+    environment:
+      PW_ENV: prod
+      PW_DEBUG: "false"
+      PW_LOG_JSON: "true"
+      PW_DATABASE_URL: postgresql+psycopg://petwise:petwise@postgres:5432/petwise
+      PW_REDIS_URL: redis://redis:6379/0
+      PW_JWT_SECRET: ${PW_JWT_SECRET:-please-change-this-secret-in-production}
+      PW_INTERNAL_TOKEN: ${PW_INTERNAL_TOKEN:-please-change-internal-token}
+      PW_VISION_BASE_URL: http://vision:8081
+      PW_AGENT_BASE_URL: http://agent:8082
+      PW_STORAGE_ENDPOINT: minio:9000
+      PW_STORAGE_PUBLIC_BASE: http://127.0.0.1:9000/petwise
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - "8080"
+
+  # ── 视觉推理：不映射端口，只在内部网络可达 ──────────────
+  vision:
+    build:
+      context: ../../services/vision
+    environment:
+      PW_VISION_ENV: prod
+      PW_VISION_LOG_LEVEL: INFO
+      PW_VISION_INTERNAL_TOKEN: ${PW_INTERNAL_TOKEN:-please-change-internal-token}
+      PW_VISION_ARTIFACTS_DIR: /app/artifacts
+      PW_VISION_PROVIDERS: cpu
+    volumes:
+      # 训练产出的权重目录，只读挂载
+      - ../../cv/artifacts:/app/artifacts:ro
+    expose:
+      - "8081"
+
+  # ── 问诊智能体 ──────────────────────────────────────────
+  agent:
+    build:
+      context: ../../services/agent
+    environment:
+      PW_AGENT_ENV: prod
+      PW_AGENT_INTERNAL_TOKEN: ${PW_INTERNAL_TOKEN:-please-change-internal-token}
+      PW_AGENT_DATABASE_URL: postgresql+psycopg://petwise:petwise@postgres:5432/petwise
+      PW_AGENT_REDIS_URL: redis://redis:6379/1
+      PW_AGENT_EMBEDDING_PROVIDER: ${PW_AGENT_EMBEDDING_PROVIDER:-hash}
+      PW_AGENT_LLM_API_KEY: ${PW_AGENT_LLM_API_KEY:-}
+      PW_AGENT_LLM_BASE_URL: ${PW_AGENT_LLM_BASE_URL:-https://api.openai.com/v1}
+      PW_AGENT_LLM_MODEL: ${PW_AGENT_LLM_MODEL:-gpt-4o-mini}
+      PW_AGENT_PRESCRIPTION_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8082"
+
+  # ── 反向代理：整站唯一对外️入口 ──────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../../apps/admin/dist:/usr/share/nginx/admin:ro
+      - ../../apps/mobile/dist:/usr/share/nginx/mobile:ro
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

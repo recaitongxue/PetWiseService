@@ -2,7 +2,7 @@
 
 > **版本** v1.0 · **基础路径** `/api/v1` · **最后更新** 2026-10-11
 >
-> 本文档依据 `app/src/data/mock.js`（静态数据）与 `app/src/data/ops.js`（本地持久化层）的实际数据契约编写，
+> 本文档依据 `apps/mobile/src/data/mock.js`（静态数据）与 `apps/mobile/src/data/ops.js`（本地持久化层）的实际数据契约编写，
 > 凡本文档定义的字段名，前端均已有对应消费代码，**按此实现即可无缝替换 Mucf 为真实接口**。
 > 前端改造时的对应关系见 [附录 B：Mucf → API 替换映射表](#附录-bmock--api-替换映射表)。
 
@@ -1131,7 +1131,7 @@ breed (字典表)
 
 #### 4.10.4 分诊引擎实现约定（后端注意）
 
-前端已有一份规则实现（`app/src/data/triage.js`），后端可直接移植或替换为模型，**但输出结构必须与之一致**：
+前端已有一份规则实现（`apps/mobile/src/data/triage.js`），后端可直接移植或替换为模型，**但输出结构必须与之一致**：
 
 ```text
 1) 存在任意 redFlag 症状 → level=emergency, score=10, factors 含 { danger: true } 项，立即短路返回
@@ -1891,7 +1891,7 @@ GET /consult/orders/{id}/messages?afterSeq=1024
 
 ### 附录 B：Mock → API 替换映射表
 
-前端接入时按此表逐个替换 `app/src/data/ops.js` 与 `mock.js` 的消费方式。
+前端接入时按此表逐个替换 `apps/mobile/src/data/ops.js` 与 `mock.js` 的消费方式。
 
 | 前端来源 | 替换为 | 说明 |
 | --- | --- | --- |
@@ -1940,7 +1940,7 @@ GET /consult/orders/{id}/messages?afterSeq=1024
 
 ### 附录 C：前端实现建议
 
-1. **统一请求层**：已提供零依赖实现 `app/src/api/`（基于 `fetch`，无需安装 axios）：
+1. **统一请求层**：已提供零依赖实现 `apps/mobile/src/api/`（基于 `fetch`，无需安装 axios）：
    - `request.js` —— 统一信封解析、Bearer 注入、`401/20002` 静默刷新后重试、错误抛 `ApiError(code, message)`
    - `token.js` —— accessToken / refreshToken 存储与刷新
    - `index.js` —— 按模块导出的 API 集合（`authApi` / `petsApi` / `consultApi` …），函数名与路径已与本文档对齐

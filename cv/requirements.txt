@@ -1,0 +1,13 @@
+torch>=2.3
+torchvision>=0.18
+numpy>=1.26
+pillow>=10.3
+opencv-python-headless>=4.10
+pandas>=2.2
+matplotlib>=3.8
+scikit-learn>=1.5
+onnx>=1.16
+onnxruntime>=1.18
+onnxscript>=1.16        # torch 2.x 的 torch.onnx.export 需要
+pyyaml>=6.0
+tqdm>=4.66

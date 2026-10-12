@@ -1,0 +1,36 @@
+[project]
+name = "petwise-vision"
+version = "0.1.0"
+description = "Petwise 视觉推理服务：加载 cv/ 导出的 ONNX 权重，提供品种识别（对内）"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# 刻意不依赖 torch：生产镜像只需 CPU 推理栈，
+# 加上 CUDA 版本也只有几百 MB，而不是训练栈的数 GB。
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-multipart>=0.0.9",
+    "numpy>=1.26",
+    "pillow>=10.3",
+    "onnxruntime>=1.18",
+]
+
+[project.optional-dependencies]
+# 有 NVIDIA 显卡时替换上面的 onnxruntime
+gpu = ["onnxruntime-gpu>=1.18"]
+dev = ["pytest>=8.2", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

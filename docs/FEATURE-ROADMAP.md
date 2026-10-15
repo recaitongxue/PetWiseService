@@ -1,7 +1,7 @@
 # PetWise 功能实现路线图（调研 + 竞争力）
 
 > 本文回答：**后续怎么完成、每个功能怎么实现、有什么用、凭什么有竞争力**。
-> 配套阅读：`ARCHITECTURE.md`(架构)、`REPO-STRUCTURE.md`(目录职责)、`API.md`(契约)。
+> 配套阅读：`FEATURES.md`(**已有功能与当前实现状态**)、`DATABASE.md`(**表结构与数据链路**)、`ARCHITECTURE.md`(架构)、`REPO-STRUCTURE.md`(目录职责)、`API.md`(契约)。
 > 竞品数据来自 2025–2026 年公开报道（汪喵灵灵、宠有灵犀、VetMew、AgenticPet、TTcare、PawChat、萌邦AI 等），用于定位差异化，非商业背书。
 
 ---

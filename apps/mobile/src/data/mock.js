@@ -132,7 +132,86 @@ export const scheduleTypes = {
   check: { label: '体检', icon: 'stethoscope', tone: 'sand' },
   weight: { label: '称重', icon: 'scale', tone: 'peach' },
   groom: { label: '洗护', icon: 'sparkle', tone: 'sage' },
+  feed: { label: '喂养', icon: 'flame', tone: 'peach' },
+  memo: { label: '备忘录', icon: 'notes', tone: 'ink' },
   other: { label: '自定义', icon: 'calendar', tone: 'ink' }
+}
+
+function isoPlus(base, days) {
+  const d = new Date(base)
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * AI 一键设置日程：读取宠物档案（物种/年龄/疫苗日），按主流养护周期生成计划。
+ * 演示逻辑；接后端后由 LLM 结合品种知识库（RAG）生成同类结构。
+ */
+export function aiSchedulePlan(pet) {
+  const today = new Date().toISOString().slice(0, 10)
+  const isDog = pet.species === 'dog'
+  const kitten = pet.age <= 1
+  const plan = [
+    {
+      type: 'deworm',
+      title: '体外驱虫',
+      date: isoPlus(today, 7),
+      cycle: '每月一次',
+      note: '滴颈后皮肤，用药后 48 小时不洗澡'
+    },
+    {
+      type: 'deworm',
+      title: '体内驱虫',
+      date: isoPlus(today, 14),
+      cycle: '每季度一次',
+      note: '空腹喂服，幼宠剂量按体重换算'
+    },
+    {
+      type: 'vaccine',
+      title: pet.nextVaccine ? `年度疫苗（${pet.nextVaccine}）` : isDog ? '年度疫苗（犬六联 + 狂犬）' : '年度疫苗（猫三联）',
+      date: pet.nextVaccine || isoPlus(today, 30),
+      cycle: '每年一次',
+      note: '接种前一周完成驱虫，接种后观察 30 分钟'
+    },
+    {
+      type: 'check',
+      title: kitten ? '幼宠基础体检' : '年度健康体检',
+      date: isoPlus(today, kitten ? 21 : 60),
+      cycle: '每年一次',
+      note: '血常规 + 生化 + 便检，老年宠建议加心脏评估'
+    },
+    {
+      type: 'groom',
+      title: isDog ? '洗澡与吹干护理' : '梳毛与指甲护理',
+      date: isoPlus(today, 10),
+      cycle: isDog ? '每两周一次' : '每周一次',
+      note: isDog ? '垂耳犬需检查耳道是否进水' : '换季期每日梳毛减少毛球症'
+    },
+    {
+      type: 'weight',
+      title: '体重复测',
+      date: isoPlus(today, 3),
+      cycle: '每月一次',
+      note: '同一时间空腹称重，记录到健康档案'
+    },
+    {
+      type: 'feed',
+      title: '早餐提醒',
+      date: today,
+      time: '08:00',
+      cycle: '每天',
+      note: kitten ? '幼宠少量多餐，每日 3–4 餐' : '定时定量，控制在品种推荐热量内'
+    },
+    {
+      type: 'feed',
+      title: '晚餐提醒',
+      date: today,
+      time: '18:00',
+      cycle: '每天',
+      note: '睡前 3 小时结束进食，减轻肠胃负担'
+    }
+  ]
+  return plan
 }
 
 export const quickActions = [
@@ -161,6 +240,8 @@ export const tips = [
 ]
 
 // 拍照识别：示例识别结果（接入 CV 模型后由后端返回）
+// 识别样本：仅品种识别（cv 模型为猫狗品种分类，不含体态/健康分析）
+// alternatives: 模型 top-3 输出，供用户识别不准时手动纠正
 export const recognitionSamples = [
   {
     id: 'r1',
@@ -168,27 +249,23 @@ export const recognitionSamples = [
     sci: 'Felis catus',
     confidence: 0.96,
     species: 'cat',
-    metrics: [
-      { label: '品种匹配', value: '96%', state: 'good' },
-      { label: '体态评估', value: '标准', state: 'good' },
-      { label: '被毛状态', value: '光亮', state: 'good' },
-      { label: '眼鼻检查', value: '正常', state: 'good' }
-    ],
-    note: '整体状态良好，被毛浓密有光泽，未见明显皮肤异常。'
+    alternatives: [
+      { title: '英国短毛猫', confidence: 0.96 },
+      { title: '苏格兰折耳猫', confidence: 0.02 },
+      { title: '中华田园猫', confidence: 0.01 }
+    ]
   },
   {
     id: 'r2',
     title: '柯基犬',
-    sci: 'Canis lupus',
+    sci: 'Canis lupus familiaris',
     confidence: 0.93,
     species: 'dog',
-    metrics: [
-      { label: '品种匹配', value: '93%', state: 'good' },
-      { label: '体态评估', value: '偏重', state: 'watch' },
-      { label: '关节关注', value: '需注意', state: 'watch' },
-      { label: '精神状况', value: '活跃', state: 'good' }
-    ],
-    note: '体重略高于标准区间，建议控制零食并增加散步；柯基需关注腰椎。'
+    alternatives: [
+      { title: '柯基犬', confidence: 0.93 },
+      { title: '瑞典柯基犬', confidence: 0.03 },
+      { title: '博美犬', confidence: 0.01 }
+    ]
   },
   {
     id: 'r3',
@@ -196,17 +273,16 @@ export const recognitionSamples = [
     sci: 'Felis catus',
     confidence: 0.91,
     species: 'cat',
-    metrics: [
-      { label: '品种匹配', value: '91%', state: 'good' },
-      { label: '被毛状态', value: '柔顺', state: 'good' },
-      { label: '泪痕检查', value: '轻微', state: 'watch' },
-      { label: '精神状态', value: '亲人', state: 'good' }
-    ],
-    note: '毛色与脸型符合布偶特征，被毛柔顺；泪痕略明显，可用湿巾每日清理。'
+    alternatives: [
+      { title: '布偶猫', confidence: 0.91 },
+      { title: '伯曼猫', confidence: 0.05 },
+      { title: '土耳其安哥拉猫', confidence: 0.01 }
+    ]
   }
 ]
 
 // 品种百科：识别结果 → 知识入口（对接后端后替换为品种库接口）
+// feeding: 喂食建议  aiPrompts: 联动 AI 问诊的快捷提问
 export const breedLibrary = [
   {
     id: 'b-bsh',
@@ -218,7 +294,14 @@ export const breedLibrary = [
     weight: '4 – 7.5 kg',
     life: '12 – 15 年',
     issues: ['肥厚型心肌病', '肥胖倾向', '多囊肾（少见）'],
-    care: '被毛短而致密，每周梳理 1–2 次即可；天性不爱运动，需要主人主动引导游戏，控制热量摄入以防发胖。'
+    care: '被毛短而致密，每周梳理 1–2 次即可；天性不爱运动，需要主人主动引导游戏，控制热量摄入以防发胖。',
+    feeding: [
+      '以优质动物蛋白为主（鸡肉、鱼肉、牛肉），低碳水防止发胖',
+      '成猫每日 60–80 g，分 2–3 餐投喂，固定品牌减少软便',
+      '零食不超过每日总热量 10%，不喂人食（洋葱/巧克力致命）',
+      '用饮水机或湿粮拌水骗水，预防泌尿问题'
+    ],
+    aiPrompts: ['英短特别容易发胖，怎么科学控制体重？', '英短幼猫一天喂几顿、喂多少合适？', '英短发情期总叫怎么办？']
   },
   {
     id: 'b-corgi',
@@ -230,7 +313,14 @@ export const breedLibrary = [
     weight: '10 – 14 kg',
     life: '12 – 14 年',
     issues: ['椎间盘疾病（IVDD）', '髋关节发育不良', '肥胖加重腰椎负担'],
-    care: '避免频繁上下楼梯与跳跃，控制体重是护腰第一要务；双层被毛换季大量掉毛，需每周多次梳理。'
+    care: '避免频繁上下楼梯与跳跃，控制体重是护腰第一要务；双层被毛换季大量掉毛，需每周多次梳理。',
+    feeding: [
+      '成年犬每日 220–300 g，分 2 餐；严格按体重调整，宁瘦勿胖',
+      '绝对禁食：洋葱、葡萄、葡萄干、巧克力、木糖醇',
+      '可选鱼油 + 葡萄糖胺保养关节，缓解腰椎与髋关节压力',
+      '进食前后 1 小时避免剧烈运动，防胃扭转'
+    ],
+    aiPrompts: ['柯基腰椎脆弱，日常生活中怎么保护？', '柯基换季掉毛严重，怎么打理？', '柯基总追小孩脚踝是为什么？']
   },
   {
     id: 'b-ragdoll',
@@ -242,7 +332,14 @@ export const breedLibrary = [
     weight: '4.5 – 9 kg',
     life: '12 – 17 年',
     issues: ['肥厚型心肌病（基因筛查）', '泪痕', '毛球症'],
-    care: '中长被毛需每日梳理防打结；浅色眼周易留泪痕，建议每日温水湿巾清洁；注意化毛膏或猫草辅助排毛。'
+    care: '中长被毛需每日梳理防打结；浅色眼周易留泪痕，建议每日温水湿巾清洁；注意化毛膏或猫草辅助排毛。',
+    feeding: [
+      '高蛋白中脂肪主粮，可补 Omega-3（鱼油）养护被毛',
+      '每日 80–100 g 分 2–3 餐，少食多餐减少呕吐',
+      '每周 2–3 次猫草或化毛膏，换毛季加量',
+      '泪痕期避免过咸零食，用温水湿巾每日清洁眼周'
+    ],
+    aiPrompts: ['布偶猫泪痕严重怎么调理？', '布偶幼猫怎么养才能爆毛？', '布偶猫肠胃脆弱总软便怎么办？']
   },
   {
     id: 'b-golden',
@@ -254,7 +351,14 @@ export const breedLibrary = [
     weight: '25 – 34 kg',
     life: '10 – 12 年',
     issues: ['髋/肘关节发育不良', '皮肤病（潮湿环境）', '耳道感染（垂耳）'],
-    care: '每天保证 1 小时以上运动；洗澡后务必吹干被毛与耳道；大型犬幼年期控制生长速度，保护关节。'
+    care: '每天保证 1 小时以上运动；洗澡后务必吹干被毛与耳道；大型犬幼年期控制生长速度，保护关节。',
+    feeding: [
+      '大型犬专用粮，每日 300–400 g 分 2 餐',
+      '幼犬期控制生长速度，过快增重会损伤关节',
+      '鱼油 + 卵磷脂护肤护毛，垂耳犬注意耳道每周清洁',
+      '运动后休息 30 分钟再进食，严防胃扭转（GDV）'
+    ],
+    aiPrompts: ['金毛幼犬怎么喂才能保护好关节？', '金毛耳朵总有异味是发炎吗？', '金毛夏天掉毛怎么处理？']
   },
   {
     id: 'b-lihua',
@@ -266,7 +370,14 @@ export const breedLibrary = [
     weight: '3.5 – 6 kg',
     life: '15 – 20 年',
     issues: ['总体遗传病少', '流浪期遗留寄生虫', '口腔结石'],
-    care: '体质强健好养，注意定期驱虫与疫苗；成年后关注牙齿清洁，提供攀爬空间释放狩猎天性。'
+    care: '体质强健好养，注意定期驱虫与疫苗；成年后关注牙齿清洁，提供攀爬空间释放狩猎天性。',
+    feeding: [
+      '优质猫粮为主，可搭配去骨熟鸡肉/鱼肉，禁喂生骨灰',
+      '每日 50–70 g，田园猫易胖也要定量',
+      '捡拾或流浪过的猫先驱虫再补疫苗，再谈营养',
+      '成年后关注牙齿清洁，可训练接受刷牙'
+    ],
+    aiPrompts: ['捡回来的田园猫先做驱虫还是疫苗？', '田园猫特别爱咬人手脚怎么纠正？', '田园猫需要绝育吗，最佳时间？']
   },
   {
     id: 'b-siamese',
@@ -278,7 +389,14 @@ export const breedLibrary = [
     weight: '2.5 – 5 kg',
     life: '15 – 20 年',
     issues: ['呼吸道敏感', '分离焦虑', '进行性视网膜萎缩（基因筛查）'],
-    care: '短毛易打理；每天需要大量互动与游戏；低温环境毛色会加深，冬季注意保暖。'
+    care: '短毛易打理；每天需要大量互动与游戏；低温环境毛色会加深，冬季注意保暖。',
+    feeding: [
+      '代谢快、活动量大，每日 60–80 g 分 3 餐高蛋白主粮',
+      '冬季适当加量 10%，注意环境保暖（怕冷体质）',
+      '呼吸道敏感期避免粉尘大的猫砂与环境香薰',
+      '分离焦虑期可用漏食玩具消磨独处时间'
+    ],
+    aiPrompts: ['暹罗猫特别爱叫是分离焦虑吗？', '暹罗猫冬天毛色变黑正常吗？', '暹罗猫需要伴偶吗？']
   }
 ]
 
@@ -777,7 +895,13 @@ export const conversations = [
     time: '09:30',
     unread: 2,
     online: true,
-    kind: 'vet'
+    kind: 'vet',
+    profile: {
+      bio: '从业 12 年 · 猫科内科方向 · 每天 10:00–20:00 在线答疑',
+      pet: null,
+      posts: 86,
+      fans: '2.3w'
+    }
   },
   {
     id: 'c2',
@@ -786,7 +910,13 @@ export const conversations = [
     time: '昨天',
     unread: 0,
     online: false,
-    kind: 'group'
+    kind: 'group',
+    profile: {
+      bio: '本地撸猫群 · 周末组织线下活动，严禁广告',
+      pet: null,
+      posts: 42,
+      fans: '1865'
+    }
   },
   {
     id: 'c3',
@@ -795,7 +925,13 @@ export const conversations = [
     time: '周一',
     unread: 0,
     online: true,
-    kind: 'friend'
+    kind: 'friend',
+    profile: {
+      bio: '柯基豆豆的爸爸 · 每天傍晚中山公园遛狗',
+      pet: { name: '豆豆', breed: '柯基犬', age: 2 },
+      posts: 17,
+      fans: '326'
+    }
   }
 ]
 
@@ -817,6 +953,88 @@ export const chatRooms = {
     { role: 'me', text: '好嘞，带上飞盘', time: '周一' }
   ]
 }
+
+// 通讯录：三组联系人。chatId → 直达已有聊天室；doctorId → 兽医资料页；都没有 → 由通讯录发起新会话
+export const contactGroups = [
+  {
+    id: 'friends',
+    label: '我的好友',
+    icon: 'user',
+    members: [
+      {
+        id: 'c3',
+        name: '豆豆的遛弯搭子',
+        kind: 'friend',
+        bio: '柯基豆豆的爸爸 · 每天傍晚中山公园遛狗',
+        online: true,
+        chatId: 'c3',
+        pet: { name: '豆豆', breed: '柯基犬', age: 2 },
+        posts: 17,
+        fans: '326'
+      },
+      {
+        id: 'ct-aju',
+        name: '阿橘的日常',
+        kind: 'friend',
+        bio: '英短麻薯的家长 · 换季护理达人',
+        online: false,
+        pet: { name: '麻薯', breed: '英国短毛猫', age: 1 },
+        posts: 9,
+        fans: '1.2k'
+      },
+      {
+        id: 'ct-kg',
+        name: '柯基豆豆',
+        kind: 'friend',
+        bio: '胖柯基本人 · 正在执行减肥计划',
+        online: false,
+        pet: { name: '豆豆', breed: '柯基犬', age: 2 },
+        posts: 5,
+        fans: '487'
+      }
+    ]
+  },
+  {
+    id: 'vets',
+    label: '我的兽医',
+    icon: 'stethoscope',
+    members: [
+      {
+        id: 'c1',
+        name: '兽医老张',
+        kind: 'vet',
+        bio: '猫科内科 · 从业 12 年 · 每天 10:00–20:00 在线答疑',
+        online: true,
+        chatId: 'c1',
+        posts: 86,
+        fans: '2.3w'
+      },
+      { id: 'd1', name: '陈静', kind: 'vet', bio: '犬猫内科 · 主治医师 · 9 年', online: true, doctorId: 'd1', rating: 4.9 },
+      { id: 'd2', name: '王铮', kind: 'vet', bio: '急诊重症 · 主任医师 · 24h 值班', online: false, doctorId: 'd2', rating: 4.8 },
+      { id: 'd3', name: '苏晴', kind: 'vet', bio: '皮肤病 · 主治医师', online: false, doctorId: 'd3', rating: 4.7 }
+    ]
+  },
+  {
+    id: 'groups',
+    label: '宠物社群',
+    icon: 'chat',
+    members: [
+      {
+        id: 'c2',
+        name: '橘座铲屎团',
+        kind: 'group',
+        bio: '本地撸猫群 · 1865 人 · 周末组织线下活动',
+        online: false,
+        chatId: 'c2'
+      },
+      { id: 'ct-pky', name: '胖柯基联盟', kind: 'group', bio: '遛狗约伴 · 892 人', online: false },
+      { id: 'ct-new', name: '新手铲屎官互助会', kind: 'group', bio: '问答互助 · 2.1w 人', online: false }
+    ]
+  }
+]
+
+// 通讯录扁平列表（供聊天室回退查找等场景复用）
+export const allContacts = contactGroups.flatMap((g) => g.members)
 
 // 社区评论（按帖子 id 取，演示用）
 export const commentsByPost = {

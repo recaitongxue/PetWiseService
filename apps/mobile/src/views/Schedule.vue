@@ -10,8 +10,18 @@
       </button>
     </header>
 
+    <!-- AI 一键设置：按档案生成整套养护周期，是日程模块的核心入口 -->
+    <button class="ai-card" type="button" v-reveal="{ delay: 30 }" @click="openAI">
+      <span class="ai-ic"><AppIcon name="sparkle" :size="18" /></span>
+      <span class="ai-body">
+        <span class="ai-t">AI 一键设置日程</span>
+        <span class="ai-s">读取宠物档案，自动生成疫苗 / 驱虫 / 体检 / 喂养整套计划</span>
+      </span>
+      <span class="ai-go">立即生成</span>
+    </button>
+
     <!-- 宠物筛选 -->
-    <div class="filters" v-reveal="{ delay: 40 }">
+    <div class="filters" v-reveal="{ delay: 50 }">
       <button
         class="f-chip"
         :class="{ on: filter === 'all' }"
@@ -31,8 +41,20 @@
       </button>
     </div>
 
+    <!-- 类型筛选 -->
+    <div class="filters type-filters" v-reveal="{ delay: 70 }">
+      <button
+        v-for="t in typeTabs"
+        :key="t.key"
+        class="f-chip sm"
+        :class="{ on: typeFilter === t.key }"
+        type="button"
+        @click="typeFilter = t.key"
+      >{{ t.label }}</button>
+    </div>
+
     <!-- 概览 -->
-    <div class="summary" v-reveal="{ delay: 80 }">
+    <div class="summary" v-reveal="{ delay: 90 }">
       <div class="sm-cell">
         <b class="num">{{ pending.length }}</b>
         <span>待办</span>
@@ -47,10 +69,15 @@
         <b class="num">{{ done.length }}</b>
         <span>已完成</span>
       </div>
+      <span class="sm-sep" aria-hidden="true"></span>
+      <div class="sm-cell">
+        <b class="num">{{ memos.length }}</b>
+        <span>备忘</span>
+      </div>
     </div>
 
     <!-- 待办时间轴 -->
-    <section v-if="pending.length" class="group" v-reveal="{ delay: 120 }">
+    <section v-if="pending.length" class="group" v-reveal="{ delay: 110 }">
       <h3 class="g-title">待办</h3>
       <div class="timeline">
         <article
@@ -64,13 +91,18 @@
             <div class="tl-top">
               <span class="tl-name">{{ it.title }}</span>
               <span v-if="it.overdue" class="tl-flag">逾期</span>
+              <span v-else-if="it.days === 0" class="tl-flag today">今天</span>
             </div>
             <div class="tl-meta">
               <span class="num">{{ it.dateText }}</span>
+              <span v-if="it.time" class="tl-time num">
+                <AppIcon name="bell" :size="11" /> {{ it.time }}
+              </span>
               <span class="tl-dot-sep">·</span>
               <span>{{ it.petName }}</span>
               <span v-if="it.cycle" class="tl-cycle">{{ it.cycle }}</span>
             </div>
+            <p v-if="it.note" class="tl-note">{{ it.note }}</p>
           </div>
           <button class="tl-check" type="button" aria-label="标记完成" @click="toggle(it)">
             <AppIcon name="check" :size="15" />
@@ -80,7 +112,7 @@
     </section>
 
     <!-- 已完成 -->
-    <section v-if="done.length" class="group" v-reveal="{ delay: 160 }">
+    <section v-if="done.length" class="group" v-reveal="{ delay: 140 }">
       <h3 class="g-title">已完成</h3>
       <div class="timeline">
         <article v-for="it in done" :key="it.id" class="tl-item is-done">
@@ -93,14 +125,120 @@
               <span>{{ it.petName }}</span>
             </div>
           </div>
-          <button class="tl-undo" type="button" aria-label="撤销完成" @click="toggle(it)">
-            撤销
+          <div class="tl-ops">
+            <button v-if="it.custom" class="tl-del" type="button" aria-label="删除" @click="remove(it)">
+              <AppIcon name="x" :size="13" />
+            </button>
+            <button class="tl-undo" type="button" @click="toggle(it)">撤销</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <p v-if="!rows.length && !memos.length" class="empty">
+      暂无日程。点右上角 + 手动添加，或用 AI 一键生成整套计划。
+    </p>
+
+    <!-- 备忘录 -->
+    <section class="group" v-reveal="{ delay: 160 }">
+      <h3 class="g-title">
+        备忘录
+        <span class="g-count num">{{ memos.length }}</span>
+      </h3>
+      <div class="memo-add">
+        <input
+          v-model="memoText"
+          class="memo-input"
+          type="text"
+          placeholder="记一笔：零食柜在阳台 / 周末寄养联系…"
+          @keyup.enter="submitMemo"
+        />
+        <button class="memo-btn" type="button" :disabled="!memoText.trim()" @click="submitMemo">
+          保存
+        </button>
+      </div>
+      <div v-if="memos.length" class="memo-list">
+        <article v-for="m in memos" :key="m.id" class="memo-item" :class="{ pinned: m.pinned }">
+          <button class="memo-pin" type="button" :aria-label="m.pinned ? '取消置顶' : '置顶'" @click="pin(m)">
+            <AppIcon name="bookmark" :size="14" />
+          </button>
+          <p class="memo-text">{{ m.text }}</p>
+          <span class="memo-time num">{{ memoTime(m.createdAt) }}</span>
+          <button class="memo-del" type="button" aria-label="删除备忘" @click="del(m)">
+            <AppIcon name="x" :size="13" />
           </button>
         </article>
       </div>
     </section>
 
-    <p v-if="!rows.length" class="empty">这只宠物暂无日程，点右上角 + 添加一条。</p>
+    <!-- AI 一键设置面板 -->
+    <transition name="sheet">
+      <div v-if="aiOpen" class="sheet-mask" @click.self="aiOpen = false">
+        <div class="sheet tall">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <h3 class="sheet-title">
+            <AppIcon name="sparkle" :size="16" /> AI 一键设置日程
+          </h3>
+          <p class="sheet-sub">为哪只宠物生成计划？</p>
+
+          <div class="type-chips">
+            <button
+              v-for="p in pets"
+              :key="p.id"
+              type="button"
+              class="type-chip"
+              :class="{ on: aiPetId === p.id }"
+              @click="aiPetId = p.id"
+            >
+              <PetAvatar :species="p.species" :name="p.name" :size="16" :ring="false" />
+              {{ p.name }}
+            </button>
+          </div>
+
+          <!-- 生成中：分步提示，比单纯转圈更可信 -->
+          <div v-if="aiPhase === 'thinking'" class="ai-thinking">
+            <span class="ai-dots"><i></i><i></i><i></i></span>
+            <p class="ai-step">{{ aiStep }}</p>
+          </div>
+
+          <!-- 生成结果：可勾选 -->
+          <template v-else-if="aiPhase === 'done'">
+            <p class="ai-result-t">
+              已生成 <b class="num">{{ plan.length }}</b> 条计划，勾选后一键添加：
+            </p>
+            <ul class="plan-list">
+              <li v-for="(p, i) in plan" :key="i" :class="{ off: !picked[i] }">
+                <button class="plan-check" type="button" :aria-label="picked[i] ? '取消勾选' : '勾选'" @click="picked[i] = !picked[i]">
+                  <AppIcon :name="picked[i] ? 'check' : 'plus'" :size="13" />
+                </button>
+                <span class="plan-dot" :class="(scheduleTypes[p.type] || {}).tone">
+                  <AppIcon :name="(scheduleTypes[p.type] || {}).icon || 'calendar'" :size="14" />
+                </span>
+                <span class="plan-body">
+                  <span class="plan-name">{{ p.title }}</span>
+                  <span class="plan-meta num">{{ fmtDate(p.date, daysOf(p.date)) }}<template v-if="p.time"> · {{ p.time }}</template> · {{ p.cycle }}</span>
+                  <span class="plan-note">{{ p.note }}</span>
+                </span>
+              </li>
+            </ul>
+          </template>
+
+          <button
+            v-if="aiPhase === 'idle'"
+            class="f-submit"
+            type="button"
+            @click="generate"
+          >开始生成</button>
+          <button
+            v-else-if="aiPhase === 'done'"
+            class="f-submit"
+            type="button"
+            :disabled="!pickedCount"
+            @click="applyPlan"
+          >一键添加 {{ pickedCount }} 条日程</button>
+        </div>
+      </div>
+    </transition>
 
     <!-- 添加日程 -->
     <transition name="sheet">
@@ -108,7 +246,7 @@
         <div class="sheet">
           <div class="sheet-grip" aria-hidden="true"></div>
           <h3 class="sheet-title">添加日程</h3>
-          <p class="sheet-sub">为宠物建立疫苗、驱虫或体检提醒</p>
+          <p class="sheet-sub">为宠物建立疫苗、驱虫、体检或喂养提醒</p>
 
           <div class="type-chips">
             <button
@@ -128,12 +266,31 @@
               <input v-model="form.date" class="f-input" type="date" />
             </label>
             <label class="f-field">
+              <span>提醒时间</span>
+              <input v-model="form.time" class="f-input" type="time" />
+            </label>
+          </div>
+          <div class="f-row">
+            <label class="f-field">
+              <span>重复周期</span>
+              <select v-model="form.cycle" class="f-input">
+                <option value="">不重复</option>
+                <option value="每天">每天</option>
+                <option value="每周一次">每周一次</option>
+                <option value="每月一次">每月一次</option>
+                <option value="每季度一次">每季度一次</option>
+                <option value="每半年一次">每半年一次</option>
+                <option value="每年一次">每年一次</option>
+              </select>
+            </label>
+            <label class="f-field">
               <span>归属宠物</span>
               <select v-model="form.petId" class="f-input">
                 <option v-for="p in pets" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </label>
           </div>
+          <input v-model="form.note" class="f-input mt" type="text" placeholder="备注（可选），如：接种前一周完成驱虫" />
 
           <button class="f-submit" type="button" :disabled="!canSubmit" @click="submit">保存日程</button>
         </div>
@@ -143,22 +300,30 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { pets, petSchedule, scheduleTypes } from '@/data/mock'
+import { pets, petSchedule, scheduleTypes, aiSchedulePlan } from '@/data/mock'
 import {
   doneScheduleIds,
   toggleScheduleDone,
   customScheduleItems,
-  addScheduleItem
+  addScheduleItem,
+  removeScheduleItem,
+  customMemos,
+  addMemo,
+  removeMemo,
+  toggleMemoPin
 } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const filter = ref('all')
+const typeFilter = ref('all')
 const addOpen = ref(false)
 const doneIds = ref(doneScheduleIds())
 const custom = ref(customScheduleItems())
+const memos = ref(customMemos())
+const memoText = ref('')
 
 const typeList = [
   { key: 'vaccine', label: '疫苗' },
@@ -166,14 +331,81 @@ const typeList = [
   { key: 'check', label: '体检' },
   { key: 'weight', label: '称重' },
   { key: 'groom', label: '洗护' },
+  { key: 'feed', label: '喂养' },
   { key: 'other', label: '自定义' }
 ]
+
+const typeTabs = [
+  { key: 'all', label: '全部' },
+  ...typeList
+]
+
+/* ---------- AI 一键设置 ---------- */
+
+const aiOpen = ref(false)
+const aiPetId = ref(pets[0].id)
+const aiPhase = ref('idle') // idle → thinking → done
+const aiStep = ref('')
+const plan = ref([])
+const picked = ref([])
+
+const AI_STEPS = ['正在读取宠物档案…', '匹配品种养护周期…', '核对疫苗与驱虫时间…', '生成计划中…']
+
+function openAI() {
+  aiPetId.value = filter.value === 'all' ? pets[0].id : filter.value
+  aiPhase.value = 'idle'
+  plan.value = []
+  picked.value = []
+  aiOpen.value = true
+}
+
+function generate() {
+  const pet = pets.find((p) => p.id === aiPetId.value) || pets[0]
+  aiPhase.value = 'thinking'
+  let i = 0
+  aiStep.value = AI_STEPS[0]
+  const timer = setInterval(() => {
+    i += 1
+    if (i < AI_STEPS.length) {
+      aiStep.value = AI_STEPS[i]
+    } else {
+      clearInterval(timer)
+      const existing = new Set(
+        customScheduleItems().filter((x) => x.petId === pet.id).map((x) => x.title)
+      )
+      plan.value = aiSchedulePlan(pet).filter((x) => !existing.has(x.title))
+      picked.value = plan.value.map(() => true)
+      aiPhase.value = 'done'
+    }
+  }, 520)
+}
+
+const pickedCount = computed(() => picked.value.filter(Boolean).length)
+
+function applyPlan() {
+  const pet = pets.find((p) => p.id === aiPetId.value) || pets[0]
+  let n = 0
+  plan.value.forEach((p, i) => {
+    if (!picked.value[i]) return
+    addScheduleItem({ ...p, petId: pet.id })
+    n += 1
+  })
+  custom.value = customScheduleItems()
+  aiOpen.value = false
+  showToast(`已为「${pet.name}」添加 ${n} 条日程`, { type: 'success' })
+}
+
+/* ---------- 列表数据 ---------- */
 
 const today = new Date()
 const todayISO = toISO(today)
 
 function toISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function daysOf(iso) {
+  return Math.round((new Date(iso) - today) / 86400000)
 }
 
 // 合并内置日程与用户自定义日程
@@ -198,9 +430,9 @@ const rows = computed(() => {
 
   return out
     .filter((x) => filter.value === 'all' || x.petId === filter.value)
+    .filter((x) => typeFilter.value === 'all' || x.type === typeFilter.value)
     .map((x) => {
-      const d = new Date(x.date)
-      const diff = Math.round((d - today) / 86400000)
+      const diff = daysOf(x.date)
       return {
         ...x,
         overdue: diff < 0,
@@ -209,7 +441,10 @@ const rows = computed(() => {
         done: doneIds.value.includes(x.id)
       }
     })
-    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1
+      return a.date < b.date ? -1 : 1
+    })
 })
 
 function fmtDate(iso, diff) {
@@ -235,10 +470,47 @@ function toggle(it) {
   })
 }
 
+function remove(it) {
+  removeScheduleItem(it.id)
+  custom.value = customScheduleItems()
+  showToast('日程已删除', { type: 'info' })
+}
+
+/* ---------- 备忘录 ---------- */
+
+function submitMemo() {
+  const text = memoText.value.trim()
+  if (!text) return
+  addMemo(text, filter.value === 'all' ? '' : filter.value)
+  memos.value = customMemos()
+  memoText.value = ''
+  showToast('已记到备忘录', { type: 'success' })
+}
+
+function del(m) {
+  removeMemo(m.id)
+  memos.value = customMemos()
+}
+
+function pin(m) {
+  toggleMemoPin(m.id)
+  memos.value = customMemos()
+}
+
+function memoTime(ts) {
+  const d = new Date(ts)
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
+/* ---------- 手动添加 ---------- */
+
 const form = reactive({
   type: 'vaccine',
   title: '',
   date: todayISO,
+  time: '',
+  cycle: '',
+  note: '',
   petId: pets[0].id
 })
 
@@ -254,11 +526,17 @@ function submit() {
     type: form.type,
     title: form.title.trim(),
     date: form.date,
+    time: form.time || '',
+    cycle: form.cycle || '',
+    note: form.note.trim(),
     petId: form.petId
   })
   custom.value = customScheduleItems()
   addOpen.value = false
   form.title = ''
+  form.note = ''
+  form.time = ''
+  form.cycle = ''
   showToast('日程已保存', { type: 'success' })
 }
 </script>
@@ -286,15 +564,55 @@ function submit() {
 }
 .add-btn:active { transform: scale(0.94); }
 
+/* ---------- AI 一键设置入口 ---------- */
+.ai-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 15px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-sage-soft), var(--color-accent-soft));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+  margin-bottom: 16px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ai-card:active { transform: scale(0.985); }
+.ai-ic {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  color: var(--color-accent-ink);
+  box-shadow: var(--shadow-soft);
+}
+.ai-body { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ai-t { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.ai-s { font-size: 11.5px; color: var(--color-ink-2); line-height: 1.5; }
+.ai-go {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-accent);
+  padding: 8px 13px;
+  border-radius: var(--radius-pill);
+}
+
 /* ---------- 筛选 ---------- */
 .filters {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .filters::-webkit-scrollbar { display: none; }
+.type-filters { margin-bottom: 16px; }
 .f-chip {
   display: inline-flex;
   align-items: center;
@@ -309,6 +627,7 @@ function submit() {
   background: transparent;
   transition: all var(--dur-fast) var(--ease-out);
 }
+.f-chip.sm { padding: 5px 12px; font-size: 12px; }
 .f-chip.on {
   color: var(--color-ink);
   background: var(--color-surface);
@@ -363,6 +682,17 @@ function submit() {
   color: var(--color-muted);
   margin-bottom: 12px;
   padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.g-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-faint);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
 }
 
 .timeline {
@@ -396,6 +726,7 @@ function submit() {
 .tl-dot.coral { background: var(--color-accent-soft); color: var(--color-accent-ink); }
 .tl-dot.sand { background: var(--color-surface-2); color: var(--color-muted); }
 .tl-dot.peach { background: var(--color-sage-soft); color: var(--color-watch); }
+.tl-dot.ink { background: var(--color-surface-2); color: var(--color-ink-2); }
 .tl-dot.done { background: var(--color-sage-soft); color: var(--color-good); }
 
 .tl-body { flex: 1; min-width: 0; }
@@ -416,6 +747,7 @@ function submit() {
   background: var(--color-accent-soft);
   color: var(--color-accent-ink);
 }
+.tl-flag.today { background: var(--color-sage-soft); color: var(--color-good); }
 .tl-meta {
   display: flex;
   align-items: center;
@@ -424,6 +756,13 @@ function submit() {
   font-size: 12px;
   color: var(--color-muted);
 }
+.tl-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  color: var(--color-ink-2);
+}
 .tl-dot-sep { color: var(--color-faint); }
 .tl-cycle {
   margin-left: 2px;
@@ -431,6 +770,12 @@ function submit() {
   border-radius: var(--radius-pill);
   background: var(--color-surface-2);
   font-size: 11px;
+}
+.tl-note {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-faint);
 }
 
 .tl-check {
@@ -450,6 +795,16 @@ function submit() {
   color: #fff;
   transform: scale(0.9);
 }
+.tl-ops { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.tl-del {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-faint);
+}
+.tl-del:active { background: var(--color-surface-2); color: var(--color-accent-ink); }
 .tl-undo {
   flex-shrink: 0;
   font-size: 12px;
@@ -462,10 +817,80 @@ function submit() {
   margin-top: 20px;
   text-align: center;
   font-size: 14px;
+  line-height: 1.7;
   color: var(--color-faint);
 }
 
-/* ---------- 添加面板 ---------- */
+/* ---------- 备忘录 ---------- */
+.memo-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.memo-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--hairline-strong);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-ink);
+  outline: none;
+}
+.memo-input:focus { border-color: var(--color-accent); border-style: solid; }
+.memo-btn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.memo-btn:disabled { opacity: 0.4; }
+.memo-list { display: flex; flex-direction: column; gap: 8px; }
+.memo-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+}
+.memo-item.pinned { border-color: color-mix(in srgb, var(--color-watch) 40%, transparent); }
+.memo-pin {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-faint);
+}
+.memo-item.pinned .memo-pin { color: var(--color-watch); }
+.memo-pin:active { background: var(--color-surface-2); }
+.memo-text {
+  flex: 1;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  word-break: break-all;
+}
+.memo-time { flex-shrink: 0; font-size: 11px; color: var(--color-faint); }
+.memo-del {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-faint);
+}
+.memo-del:active { background: var(--color-surface-2); color: var(--color-accent-ink); }
+
+/* ---------- 底部面板 ---------- */
 .sheet-mask {
   position: fixed;
   inset: 0;
@@ -478,6 +903,8 @@ function submit() {
 .sheet {
   width: 100%;
   max-width: var(--shell-max);
+  max-height: 86dvh;
+  overflow-y: auto;
   background: var(--color-surface);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: 10px 20px 28px;
@@ -493,12 +920,87 @@ function submit() {
   font-family: var(--font-display);
   font-size: 19px;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 .sheet-sub {
   font-size: 13px;
   color: var(--color-muted);
   margin: 4px 0 16px;
 }
+
+/* AI 生成动效 */
+.ai-thinking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 0 26px;
+}
+.ai-dots { display: inline-flex; gap: 6px; }
+.ai-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: bounce 1.2s var(--ease-in-out) infinite;
+}
+.ai-dots i:nth-child(2) { animation-delay: 0.18s; }
+.ai-dots i:nth-child(3) { animation-delay: 0.36s; }
+@keyframes bounce { 0%,100%{transform:translateY(0);opacity:0.4} 50%{transform:translateY(-6px);opacity:1} }
+.ai-step { font-size: 13.5px; font-weight: 600; color: var(--color-muted); }
+
+.ai-result-t { font-size: 13px; color: var(--color-muted); margin-bottom: 12px; }
+.ai-result-t b { color: var(--color-accent-ink); }
+.plan-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.plan-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: var(--color-bg);
+  transition: opacity var(--dur-fast);
+}
+.plan-list li.off { opacity: 0.45; }
+.plan-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 1px solid var(--hairline-strong);
+  color: var(--color-muted);
+  background: var(--color-surface);
+}
+.plan-list li:not(.off) .plan-check {
+  background: var(--color-good);
+  border-color: var(--color-good);
+  color: #fff;
+}
+.plan-dot {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--color-sage-soft);
+  color: var(--color-good);
+}
+.plan-dot.coral { background: var(--color-accent-soft); color: var(--color-accent-ink); }
+.plan-dot.sand { background: var(--color-surface-2); color: var(--color-muted); }
+.plan-dot.peach { background: var(--color-sage-soft); color: var(--color-watch); }
+.plan-dot.ink { background: var(--color-surface-2); color: var(--color-ink-2); }
+.plan-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plan-name { font-size: 14px; font-weight: 700; }
+.plan-meta { font-size: 11.5px; font-weight: 700; color: var(--color-accent-ink); }
+.plan-note { font-size: 11.5px; color: var(--color-faint); line-height: 1.5; }
+
 .type-chips {
   display: flex;
   gap: 8px;
@@ -506,6 +1008,9 @@ function submit() {
   margin-bottom: 14px;
 }
 .type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 13px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--hairline);
@@ -529,13 +1034,14 @@ function submit() {
   font-size: 15px;
   color: var(--color-ink);
 }
+.f-input.mt { margin-top: 10px; }
 .f-input:focus { outline: 2px solid var(--color-accent); outline-offset: -1px; }
 .f-row {
   display: flex;
   gap: 10px;
   margin-top: 10px;
 }
-.f-field { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.f-field { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .f-field span { font-size: 12px; font-weight: 700; color: var(--color-muted); }
 .f-submit {
   width: 100%;
@@ -558,4 +1064,8 @@ function submit() {
 .sheet-leave-active .sheet { transition: transform var(--dur-base) var(--ease-out); }
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet { transform: translateY(100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-dots i { animation: none; }
+}
 </style>

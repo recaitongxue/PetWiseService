@@ -42,7 +42,14 @@ export const scheduleApi = {
   create: (body) => http.post('/schedule', body),
   update: (id, body) => http.patch(`/schedule/${id}`, body),
   toggleDone: (id, done) => http.patch(`/schedule/${id}/done`, { done }),
-  remove: (id) => http.del(`/schedule/${id}`)
+  remove: (id) => http.del(`/schedule/${id}`),
+  aiPlan: (body) => http.post('/schedule/ai-plan', body),
+  batch: (body) => http.post('/schedule/batch', body)
+}
+
+/* ---------------- 通讯录 ---------------- */
+export const contactsApi = {
+  list: (q) => http.get('/contacts', q ? { q } : undefined)
 }
 
 /* ---------------- 首页聚合 ---------------- */
@@ -66,7 +73,8 @@ export const contentApi = {
 export const recognitionApi = {
   recognize: (formData) => http.upload('/recognitions', formData),
   history: (params) => http.get('/recognitions', params),
-  task: (taskId) => http.get(`/recognitions/tasks/${taskId}`)
+  task: (taskId) => http.get(`/recognitions/tasks/${taskId}`),
+  correct: (id, body) => http.post(`/recognitions/${id}/correction`, body)
 }
 
 /* ---------------- 在线问诊（核心模块） ---------------- */
@@ -114,15 +122,25 @@ export const communityApi = {
   like: (id) => http.post(`/posts/${id}/like`),
   unlike: (id) => http.del(`/posts/${id}/like`),
   comments: (id, params) => http.get(`/posts/${id}/comments`, params),
-  comment: (id, text) => http.post(`/posts/${id}/comments`, { text })
+  comment: (id, text) => http.post(`/posts/${id}/comments`, { text }),
+  report: (id, body) => http.post(`/posts/${id}/report`, body || {})
 }
 
 /* ---------------- 即时消息 ---------------- */
 export const imApi = {
   conversations: () => http.get('/conversations'),
+  create: (body) => http.post('/conversations', body),
   messages: (id, params) => http.get(`/conversations/${id}/messages`, params),
   send: (id, body) => http.post(`/conversations/${id}/messages`, body),
   read: (id) => http.post(`/conversations/${id}/read`)
+}
+
+/* ---------------- 备忘录 ---------------- */
+export const memoApi = {
+  list: (q) => http.get('/memo', q),
+  add: (body) => http.post('/memo', body),
+  pin: (id, body) => http.patch(`/memo/${id}`, body),
+  remove: (id) => http.del(`/memo/${id}`)
 }
 
 /* ---------------- 文件上传 ---------------- */

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 700" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="700" rx="14" fill="#FBF8F2"/>
+<text x="24" y="34" font-size="17" font-weight="700" fill="#1F2E26">全局导航总览</text>
+<text x="24" y="52" font-size="11.5" fill="#8A968F">C 端 21 条路由 · 管理端 9 页 · 数据经 localStorage 共享键跨端闭环</text>
+<text x="24" y="82" font-size="12" font-weight="700" fill="#3E6B57">启动登录</text>
+<rect x="130" y="70" rx="9" width="60" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="160.0" y="86" text-anchor="middle" font-size="11.5" fill="#1F2E26">Splash</text>
+<rect x="200" y="70" rx="9" width="54" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="227.0" y="86" text-anchor="middle" font-size="11.5" fill="#1F2E26">Login</text>
+<text x="24" y="126" font-size="12" font-weight="700" fill="#3E6B57">首页与识别</text>
+<rect x="130" y="114" rx="9" width="47" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="153.5" y="130" text-anchor="middle" font-size="11.5" fill="#1F2E26">Home</text>
+<rect x="187" y="114" rx="9" width="79" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="226.5" y="130" text-anchor="middle" font-size="11.5" fill="#1F2E26">Recognize</text>
+<rect x="276" y="114" rx="9" width="92" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="322.0" y="130" text-anchor="middle" font-size="11.5" fill="#1F2E26">BreedDetail</text>
+<text x="24" y="170" font-size="12" font-weight="700" fill="#3E6B57">问诊主线</text>
+<rect x="130" y="158" rx="9" width="86" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="173.0" y="174" text-anchor="middle" font-size="11.5" fill="#1F2E26">ConsultHub</text>
+<rect x="226" y="158" rx="9" width="92" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="272.0" y="174" text-anchor="middle" font-size="11.5" fill="#1F2E26">Consult(AI)</text>
+<rect x="328" y="158" rx="9" width="86" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="371.0" y="174" text-anchor="middle" font-size="11.5" fill="#1F2E26">PreConsult</text>
+<rect x="424" y="158" rx="9" width="67" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="457.5" y="174" text-anchor="middle" font-size="11.5" fill="#1F2E26">Doctors</text>
+<rect x="501" y="158" rx="9" width="99" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="550.5" y="174" text-anchor="middle" font-size="11.5" fill="#1F2E26">DoctorDetail</text>
+<rect x="130" y="188" rx="9" width="125" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="192.5" y="204" text-anchor="middle" font-size="11.5" fill="#1F2E26">ConsultationRoom</text>
+<rect x="265" y="188" rx="9" width="60" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="295.0" y="204" text-anchor="middle" font-size="11.5" fill="#1F2E26">Report</text>
+<rect x="335" y="188" rx="9" width="67" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="368.5" y="204" text-anchor="middle" font-size="11.5" fill="#1F2E26">Records</text>
+<text x="24" y="244" font-size="12" font-weight="700" fill="#3E6B57">社区与消息</text>
+<rect x="130" y="232" rx="9" width="79" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="169.5" y="248" text-anchor="middle" font-size="11.5" fill="#1F2E26">Community</text>
+<rect x="219" y="232" rx="9" width="73" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="255.5" y="248" text-anchor="middle" font-size="11.5" fill="#1F2E26">ChatList</text>
+<rect x="302" y="232" rx="9" width="73" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="338.5" y="248" text-anchor="middle" font-size="11.5" fill="#1F2E26">ChatRoom</text>
+<text x="24" y="288" font-size="12" font-weight="700" fill="#3E6B57">我的</text>
+<rect x="130" y="276" rx="9" width="86" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="173.0" y="292" text-anchor="middle" font-size="11.5" fill="#1F2E26">PetProfile</text>
+<rect x="226" y="276" rx="9" width="73" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="262.5" y="292" text-anchor="middle" font-size="11.5" fill="#1F2E26">Schedule</text>
+<rect x="309" y="276" rx="9" width="79" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="348.5" y="292" text-anchor="middle" font-size="11.5" fill="#1F2E26">Favorites</text>
+<rect x="398" y="276" rx="9" width="67" height="24" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><text x="431.5" y="292" text-anchor="middle" font-size="11.5" fill="#1F2E26">Profile</text>
+<line x1="24" y1="320" x2="656" y2="320" stroke="rgba(31,46,38,.14)" stroke-dasharray="3 4"/>
+<text x="24" y="354" font-size="12" font-weight="700" fill="#C96A4A">管理端（apps/admin）</text>
+<rect x="150" y="342" rx="9" width="54" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="177.0" y="358" text-anchor="middle" font-size="11.5" fill="#1F2E26">Login</text>
+<rect x="214" y="342" rx="9" width="79" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="253.5" y="358" text-anchor="middle" font-size="11.5" fill="#1F2E26">Dashboard</text>
+<rect x="303" y="342" rx="9" width="54" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="330.0" y="358" text-anchor="middle" font-size="11.5" fill="#1F2E26">Users</text>
+<rect x="367" y="342" rx="9" width="67" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="400.5" y="358" text-anchor="middle" font-size="11.5" fill="#1F2E26">Records</text>
+<rect x="444" y="342" rx="9" width="86" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="487.0" y="358" text-anchor="middle" font-size="11.5" fill="#1F2E26">Moderation</text>
+<rect x="150" y="372" rx="9" width="73" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="186.5" y="388" text-anchor="middle" font-size="11.5" fill="#1F2E26">Consults</text>
+<rect x="233" y="372" rx="9" width="73" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="269.5" y="388" text-anchor="middle" font-size="11.5" fill="#1F2E26">Announce</text>
+<rect x="316" y="372" rx="9" width="73" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="352.5" y="388" text-anchor="middle" font-size="11.5" fill="#1F2E26">Feedback</text>
+<rect x="399" y="372" rx="9" width="73" height="24" fill="#F8ECE6" stroke="#C96A4A" stroke-opacity=".3"/><text x="435.5" y="388" text-anchor="middle" font-size="11.5" fill="#1F2E26">Settings</text>
+<line x1="24" y1="418" x2="656" y2="418" stroke="rgba(31,46,38,.14)" stroke-dasharray="3 4"/>
+<text x="24" y="452" font-size="12" font-weight="700" fill="#5C6B62">localStorage 共享键（双端闭环）</text>
+<rect x="24.0" y="464" rx="85.6" height="22" width="171.18" fill="#EFEDE7"/><text x="109.6" y="479" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_announcements ✅</text><rect x="203.2" y="464" rx="72.7" height="22" width="145.42000000000002" fill="#EFEDE7"/><text x="275.9" y="479" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_feedbacks ✅</text><rect x="356.6" y="464" rx="76.6" height="22" width="153.24" fill="#EFEDE7"/><text x="433.2" y="479" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_ann_dismissed</text>
+<text x="24" y="512" font-size="12" font-weight="700" fill="#5C6B62">后端服务</text>
+<rect x="24.0" y="524" rx="96.4" height="22" width="192.8" fill="#EFEDE7"/><text x="120.4" y="539" text-anchor="middle" font-size="11.5" fill="#1F2E26">services/vision（ONNX 推理）</text><rect x="224.8" y="524" rx="94.6" height="22" width="189.12" fill="#EFEDE7"/><text x="319.4" y="539" text-anchor="middle" font-size="11.5" fill="#1F2E26">services/agent（LangGraph）</text><rect x="421.9" y="524" rx="70.6" height="22" width="141.28" fill="#EFEDE7"/><text x="492.6" y="539" text-anchor="middle" font-size="11.5" fill="#1F2E26">services/api（网关）</text>
+</svg>

@@ -5,11 +5,11 @@
         <p class="eyebrow">COMPUTER VISION</p>
         <h1 class="title">拍照识别</h1>
       </div>
-      <span class="cv-badge"><AppIcon name="sparkle" :size="14" /> 视觉模型</span>
+      <span class="cv-badge"><AppIcon name="sparkle" :size="14" /> 品种识别</span>
     </header>
 
     <p class="lede" v-reveal="{ delay: 80 }">
-      对准宠物拍一张，模型会识别品种、体态与精神状态，并给出健康提示。
+      对准宠物拍一张，模型识别猫狗品种，并给出该品种的档案介绍与饲养建议。
     </p>
 
     <!-- 取景框 -->
@@ -29,7 +29,7 @@
           <p class="vf-tip">将宠物放入框内</p>
         </template>
         <template v-else-if="scanning">
-          <p class="vf-tip scanning-text">视觉模型识别中…</p>
+          <p class="vf-tip scanning-text">品种识别中…</p>
         </template>
         <template v-else>
           <PetIllustration :species="result.species" class="vf-illu" />
@@ -73,43 +73,66 @@
           <span :style="{ width: result.confidence * 100 + '%' }"></span>
         </div>
 
-        <div class="metrics">
-          <div v-for="m in result.metrics" :key="m.label" class="metric" :class="m.state">
-            <span class="metric-val num">{{ m.value }}</span>
-            <span class="metric-label">{{ m.label }}</span>
-          </div>
+        <!-- 模型 top-3 备选 -->
+        <div class="alts">
+          <span class="alts-label">模型备选</span>
+          <span v-for="a in result.alternatives" :key="a.title" class="alt-chip">
+            {{ a.title }} <i class="num">{{ Math.round(a.confidence * 100) }}%</i>
+          </span>
         </div>
 
-        <p class="result-note">{{ result.note }}</p>
+        <!-- top1 品种档案（与百科联动） -->
+        <div v-if="breedOf" class="breed-intro">
+          <div class="bi-head">
+            <span class="bi-origin"><AppIcon name="location" :size="13" /> 原产地 · {{ breedOf.origin }}</span>
+            <span class="bi-life">寿命 {{ breedOf.life }} · 体重 {{ breedOf.weight }}</span>
+          </div>
+          <div class="bi-temper">
+            <span v-for="t in breedOf.temperament" :key="t" class="temper-chip">{{ t }}</span>
+          </div>
+          <div class="bi-feeding">
+            <p class="bi-sub">喂食建议</p>
+            <p v-for="(f, i) in breedOf.feeding.slice(0, 2)" :key="i" class="bi-line">{{ f }}</p>
+          </div>
+        </div>
+        <p v-else class="breed-missing">该品种的百科资料完善中，可先查看其它内容或手动纠正品种。</p>
 
         <div class="result-foot">
           <button class="rf-btn" type="button" @click="capture">重新识别</button>
           <button class="rf-btn" type="button" @click="saveRecord">保存记录</button>
           <router-link :to="`/breed/${breedPath}`" class="rf-btn">品种百科</router-link>
           <router-link
-            :to="{ path: '/consult/ai', query: { pet: result.title, note: result.note } }"
+            :to="{ path: '/consult/ai', query: { pet: result.title, note: `我拍到的宠物识别为${result.title}，想了解这个品种的饲养与健康管理` } }"
             class="rf-btn accent"
-          >就结果问医生 →</router-link>
+          >问问 AI →</router-link>
         </div>
+
+        <button class="fix-btn" type="button" @click="openFix">
+          <AppIcon name="edit" :size="14" /> 识别不准？手动纠正品种
+        </button>
       </article>
     </transition>
 
-    <!-- 识别历史 -->
+    <!-- 识别记录（持久化，管理端审核后状态同步） -->
     <section class="block" v-if="history.length" v-reveal>
       <div class="block-head">
         <h3 class="block-title">识别记录</h3>
         <span class="block-hint">{{ history.length }} 条</span>
       </div>
       <div class="records">
-        <div v-for="(h, i) in history" :key="i" class="rec">
+        <div v-for="h in history" :key="h.id" class="rec">
           <span class="rec-illu"><PetIllustration :species="h.species" /></span>
           <div class="rec-body">
-            <span class="rec-name">{{ h.title }}</span>
-            <span class="rec-time num">{{ h.time }}</span>
+            <span class="rec-name">
+              {{ h.corrected || h.predicted }}
+              <em v-if="h.corrected" class="rec-from">纠正自「{{ h.predicted }}」</em>
+            </span>
+            <span class="rec-time num">{{ formatTime(h.time) }}</span>
           </div>
-          <span class="rec-conf num">{{ Math.round(h.confidence * 100) }}%</span>
+          <span class="rec-badge num" :class="badgeOf(h.status).c">{{ badgeOf(h.status).t }}</span>
         </div>
       </div>
+      <p class="rec-note">手动纠正的记录将进入管理端审核，通过后可作为训练数据回流模型。</p>
     </section>
 
     <!-- 示例库（演示数据集） -->
@@ -132,6 +155,36 @@
         </button>
       </div>
     </section>
+
+    <!-- 手动纠正：底部弹层 -->
+    <teleport to="body">
+      <div v-if="correcting" class="sheet-mask" @click.self="correcting = false">
+        <div class="sheet">
+          <div class="sheet-head">
+            <h3>纠正识别品种</h3>
+            <button class="sheet-close" type="button" @click="correcting = false">取消</button>
+          </div>
+          <p class="sheet-tip">模型预测为「{{ result?.title }}」。请选择正确品种（仅支持{{ result?.species === 'dog' ? '犬' : '猫' }}种）：</p>
+          <input v-model="fixKw" class="sheet-search" type="search" placeholder="搜索品种名" />
+          <div class="sheet-list">
+            <button
+              v-for="b in fixCandidates"
+              :key="b.id"
+              class="sheet-item"
+              type="button"
+              @click="applyFix(b.name)"
+            >
+              <span class="si-illu"><PetIllustration :species="b.species" /></span>
+              <span class="si-body">
+                <span class="si-name">{{ b.name }}</span>
+                <span class="si-origin">{{ b.origin }} · {{ b.weight }}</span>
+              </span>
+            </button>
+            <p v-if="!fixCandidates.length" class="sheet-empty">没有匹配的品种</p>
+          </div>
+        </div>
+      </div>
+    </teleport>
   </section>
 </template>
 
@@ -140,6 +193,7 @@ import { computed, ref } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetIllustration from '@/components/PetIllustration.vue'
 import { recognitionSamples, breedLibrary } from '@/data/mock'
+import { recognitionHistory, saveRecognition, correctRecognition } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const scanning = ref(false)
@@ -147,7 +201,10 @@ const result = ref(null)
 const cursor = ref(0)
 const picked = ref(null)
 const fileInput = ref(null)
-const history = ref([])
+const history = ref(recognitionHistory())
+const correcting = ref(false)
+const fixKw = ref('')
+const savedId = ref(null) // 本次结果对应的记录 id（未保存时为 null）
 
 // 识别标题 → 品种库 id（识别结果一键跳转百科）
 const breedPath = computed(() => {
@@ -156,13 +213,36 @@ const breedPath = computed(() => {
   return hit ? hit.id : result.value.title
 })
 
-function now() {
-  const d = new Date()
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+// top1 品种档案（识别结果与百科联动的数据基础）
+const breedOf = computed(() => {
+  if (!result.value) return null
+  return breedLibrary.find((b) => b.name === result.value.title) || null
+})
+
+// 手动纠正候选：同物种品种库 + 搜索
+const fixCandidates = computed(() => {
+  if (!result.value) return []
+  const kw = fixKw.value.trim()
+  return breedLibrary.filter(
+    (b) => b.species === result.value.species && (!kw || b.name.includes(kw) || b.origin.includes(kw))
+  )
+})
+
+function formatTime(iso) {
+  const d = new Date(iso)
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function badgeOf(status) {
+  return (
+    { review: { t: '纠正待审核', c: 'watch' }, approved: { t: '已采纳', c: 'good' }, rejected: { t: '维持原结果', c: 'muted' } }[status] ||
+    { t: '已完成', c: 'good' }
+  )
 }
 
 function finishWith(index) {
-  result.value = recognitionSamples[index]
+  result.value = { ...recognitionSamples[index], source: 'demo' }
+  savedId.value = null
 }
 
 function runScan() {
@@ -203,15 +283,36 @@ function loadSample(i) {
   finishWith(i)
 }
 
+// 保存识别记录（持久化）
 function saveRecord() {
   if (!result.value) return
-  history.value.unshift({
+  const rec = saveRecognition({
     species: result.value.species,
-    title: result.value.title,
+    predicted: result.value.title,
     confidence: result.value.confidence,
-    time: now()
+    alternatives: result.value.alternatives,
+    imageRef: result.value.source
   })
+  savedId.value = rec.id
+  history.value = recognitionHistory()
   showToast('已保存到识别记录', { type: 'success' })
+}
+
+// 打开纠正弹层：未保存过的结果先自动保存
+function openFix() {
+  if (!result.value) return
+  if (!savedId.value) saveRecord()
+  fixKw.value = ''
+  correcting.value = true
+}
+
+// 提交纠正 → 进入管理端审核队列
+function applyFix(breedName) {
+  if (!savedId.value) return
+  correctRecognition(savedId.value, breedName)
+  history.value = recognitionHistory()
+  correcting.value = false
+  showToast(`已提交「${breedName}」，等待管理端审核`, { type: 'success' })
 }
 </script>
 
@@ -426,45 +527,106 @@ function saveRecord() {
   transition: width 0.9s var(--ease-out);
 }
 
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+/* 模型备选 */
+.alts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-.metric {
-  text-align: center;
-  padding: 12px 6px;
-  border-radius: var(--radius-md);
+.alts-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-muted);
+  letter-spacing: 0.06em;
+}
+.alt-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
-}
-.metric.good { background: var(--color-sage-soft); }
-.metric.watch { background: #fbe7d2; }
-.metric-val {
-  display: block;
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--color-ink);
-}
-.metric-label {
-  display: block;
-  font-size: 11px;
-  color: var(--color-muted);
-  margin-top: 3px;
-}
-.result-note {
-  margin: 16px 0;
-  font-size: 14px;
-  line-height: 1.65;
   color: var(--color-ink-2);
-  padding: 12px 14px;
-  background: var(--color-bg-2);
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--color-accent);
 }
+.alt-chip i {
+  font-style: normal;
+  color: var(--color-muted);
+  margin-left: 3px;
+  font-size: 11px;
+}
+
+/* top1 品种档案 */
+.breed-intro {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border);
+}
+.bi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bi-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-pine-ink, #2d4a3e);
+}
+.bi-life { font-size: 11.5px; color: var(--color-muted); }
+.bi-temper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+.temper-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-sage-soft);
+  color: #2d4a3e;
+  font-weight: 600;
+}
+.bi-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  margin-bottom: 4px;
+}
+.bi-line {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-ink-2);
+  padding-left: 12px;
+  position: relative;
+}
+.bi-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+.breed-missing {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
 .result-foot {
   display: flex;
   gap: 10px;
+  margin-top: 16px;
 }
 .rf-btn {
   flex: 1;
@@ -486,6 +648,22 @@ function saveRecord() {
   border-color: transparent;
   flex: 1.3;
 }
+.fix-btn {
+  margin-top: 12px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.fix-btn:active { transform: scale(0.98); }
 
 /* 识别历史 */
 .block { margin-top: 28px; }
@@ -522,13 +700,31 @@ function saveRecord() {
   border: 1px solid var(--color-border);
 }
 .rec-illu { width: 42px; height: 42px; flex-shrink: 0; }
-.rec-body { flex: 1; display: flex; flex-direction: column; }
+.rec-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rec-name { font-weight: 700; font-size: 15px; }
+.rec-from {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-muted);
+  margin-left: 6px;
+}
 .rec-time { font-size: 12px; color: var(--color-muted); }
-.rec-conf {
+.rec-badge {
   font-weight: 700;
-  color: var(--color-accent-ink);
-  font-size: 15px;
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+.rec-badge.good { color: #2d4a3e; background: var(--color-sage-soft); }
+.rec-badge.watch { color: #8a5a12; background: #fbe7d2; }
+.rec-badge.muted { color: var(--color-muted); background: var(--color-surface-2); }
+.rec-note {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+  line-height: 1.5;
 }
 
 /* 示例库 */
@@ -556,7 +752,90 @@ function saveRecord() {
 .sample-illu { width: 50px; height: 50px; }
 .sample-name { font-size: 12px; font-weight: 600; }
 
+/* 手动纠正弹层 */
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(27, 42, 34, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade 0.2s var(--ease-out);
+}
+@keyframes fade { from { opacity: 0; } }
+.sheet {
+  width: min(440px, 100%);
+  max-height: 76vh;
+  overflow: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 20px 20px 32px;
+  animation: up 0.28s var(--ease-out);
+}
+@keyframes up { from { transform: translateY(40px); opacity: 0; } }
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-head h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.sheet-close {
+  font-size: 13px;
+  color: var(--color-muted);
+  background: none;
+  border: none;
+  padding: 6px;
+}
+.sheet-tip {
+  font-size: 13px;
+  color: var(--color-ink-2);
+  line-height: 1.6;
+  margin: 10px 0 12px;
+}
+.sheet-search {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-2);
+  font-size: 14px;
+  outline: none;
+}
+.sheet-search:focus { border-color: var(--color-accent); }
+.sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  text-align: left;
+}
+.sheet-item:active { transform: scale(0.98); }
+.si-illu { width: 38px; height: 38px; flex-shrink: 0; }
+.si-body { display: flex; flex-direction: column; }
+.si-name { font-weight: 700; font-size: 14.5px; }
+.si-origin { font-size: 12px; color: var(--color-muted); }
+.sheet-empty {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: 20px 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .vf-scan, .scanning-text, .vf-illu { animation: none; }
+  .vf-scan, .scanning-text, .vf-illu, .sheet, .sheet-mask { animation: none; }
 }
 </style>

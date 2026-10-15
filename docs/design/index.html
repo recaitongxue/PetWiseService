@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PetWise 设计文档 · 页面流程图</title>
+<style>
+  :root { --bg:#F4F1EA; --card:#FFF; --ink:#1F2E26; --sub:#5C6B62; --line:rgba(31,46,38,.12); --pine:#3E6B57; --coral:#C96A4A; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.7 'PingFang SC','Microsoft YaHei',system-ui,sans-serif; }
+  .wrap { display:grid; grid-template-columns:230px 1fr; gap:28px; max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+  aside { position:sticky; top:20px; align-self:start; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; max-height:calc(100vh - 40px); overflow:auto; }
+  .toc-group { font-size:12px; font-weight:700; color:var(--pine); margin:12px 0 6px; }
+  .toc-item { display:block; padding:4px 8px; border-radius:8px; color:var(--sub); text-decoration:none; font-size:13px; }
+  .toc-item:hover { background:#EAF1EC; color:var(--ink); }
+  header h1 { font-size:24px; margin:0 0 6px; }
+  header p { color:var(--sub); margin:0 0 8px; }
+  .save-hint { font-size:12.5px; color:var(--pine); background:var(--pine-soft,#EAF1EC); border:1px solid rgba(62,107,87,.25); border-radius:9px; padding:6px 12px; margin:6px 0 10px; }
+  .save-hint code { background:rgba(31,46,38,.06); padding:1px 6px; border-radius:6px; font-size:11.5px; }
+  .tools button { border:1px solid var(--line); background:var(--card); border-radius:9px; padding:6px 12px; font-size:12.5px; color:var(--sub); cursor:pointer; margin-right:8px; }
+  .tools button:hover { color:var(--pine); border-color:var(--pine); }
+  .page { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin:18px 0; }
+  .head h2 { font-size:18px; margin:0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .head code { font-size:12px; color:var(--sub); background:#F1EFE8; padding:2px 8px; border-radius:7px; }
+  .badge { font-size:11.5px; font-weight:600; padding:2px 10px; border-radius:11px; }
+  .fig svg { width:100%; height:auto; display:block; }
+  details.meta { margin:10px 0; border-top:1px dashed var(--line); padding-top:10px; }
+  details.meta summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--pine); }
+  details.meta ol { margin:8px 0 8px 20px; padding:0; }
+  details.meta li { font-size:13px; margin:3px 0; }
+  details.meta li span { color:var(--sub); margin-left:8px; font-size:12.5px; }
+  .kv { font-size:12.5px; margin:3px 0; } .kv b { color:var(--pine); margin-right:8px; font-size:12px; }
+  .note { margin-top:10px; }
+  .note-title { font-size:12px; font-weight:700; color:var(--coral); margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .save-state { font-size:11px; font-weight:400; color:var(--faint); }
+  .save-state.ok { color:var(--pine); }
+  .note-body { min-height:56px; border:1px dashed var(--line); border-radius:10px; padding:10px 12px; font-size:13.5px; background:#FCFBF7; outline:none; }
+  .note-body:focus { border-color:var(--coral); background:#FFF; }
+  @media print { aside,.tools,.note-title { display:none; } .page { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <div class="toc-group">目录</div>
+  <div class="toc-group">C 端</div><a class="toc-item" href="#splash">启动页 Splash</a><a class="toc-item" href="#login">登录 Login</a><a class="toc-item" href="#home">首页 Home</a><a class="toc-item" href="#recognize">拍照识别 Recognize</a><a class="toc-item" href="#breed">品种百科 BreedDetail</a><a class="toc-item" href="#pet">宠物档案 PetProfile</a><a class="toc-item" href="#schedule">日程与提醒 Schedule</a><a class="toc-item" href="#hub">问诊中枢 ConsultHub</a><a class="toc-item" href="#consult">AI 智能问诊 Consult</a><a class="toc-item" href="#preconsult">结构化预问诊 PreConsult</a><a class="toc-item" href="#doctors">医生列表 Doctors</a><a class="toc-item" href="#doctor">医生详情 DoctorDetail</a><a class="toc-item" href="#room">问诊室 ConsultationRoom</a><a class="toc-item" href="#report">问诊报告 Report</a><a class="toc-item" href="#records">问诊记录 Records</a><a class="toc-item" href="#community">宠物社区 Community</a><a class="toc-item" href="#chatlist">消息列表 ChatList</a><a class="toc-item" href="#chatroom">聊天室 ChatRoom</a><a class="toc-item" href="#favorites">我的收藏 Favorites</a><a class="toc-item" href="#profile">我的 Profile</a><div class="toc-group">管理端</div><a class="toc-item" href="#admin-login">管理端登录 Login</a><a class="toc-item" href="#admin-dashboard">数据看板 Dashboard</a><a class="toc-item" href="#admin-users">用户管理 Users</a><a class="toc-item" href="#admin-records">识别记录 Records</a><a class="toc-item" href="#admin-moderation">内容审核 Moderation</a><a class="toc-item" href="#admin-consults">问诊记录 Consults</a><a class="toc-item" href="#admin-announce">公告管理 Announce</a><a class="toc-item" href="#admin-feedback">用户反馈 Feedback</a><a class="toc-item" href="#admin-settings">系统设置 Settings</a>
+</aside>
+<main>
+<header>
+  <h1>PetWise 设计文档 · 页面流程图</h1>
+  <p>共 29 个页面（C 端 20 + 管理端 9）。每张图含：入口 / 流程 / 分支规则 / 数据源 / 出口。状态：已实现 / 演示实现 / 占位。</p>
+  <p class="save-hint">💾 改进方向<b>自动保存到服务器</b>（<code>docs/design/notes.json</code>），刷新 / 重开 / 换端口都不丢失。</p>
+  <div class="tools">
+    <button onclick="exportNotes()">导出全部改进方向（JSON）</button>
+    <button onclick="window.print()">打印 / 存 PDF</button>
+  </div>
+</header>
+
+<section id="splash" class="page">
+  <div class="head">
+    <h2>启动页 Splash <code>/ （public）</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">启动页 Splash</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/ （public）</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="39.1" height="22" width="78.26" fill="#EAF1EC"/><text x="57.1" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">App 冷启动</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">读取登录态</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">isAuthed() 同步读</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">localStorage</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">按钮文案分流</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">已登录「进入 Petwise」</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">／未登录「开始使用」</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">replace 跳转</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">→ /home 或 /login，不</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">留历史栈</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· meta.public 放行，不被登录拦截</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 隐藏 Dock（meta.bare）</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="47.6" height="22" width="95.28" fill="#EFEDE7"/><text x="65.6" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_auth</text><rect x="121.3" y="256" rx="56.6" height="22" width="113.22" fill="#EFEDE7"/><text x="177.9" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ authApi.me()</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="25.1" height="22" width="50.2" fill="#F8F1DF"/><text x="43.1" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/home</text><rect x="76.2" y="288" rx="28.3" height="22" width="56.64" fill="#F8F1DF"/><text x="104.5" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/login</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>读取登录态</b><span>isAuthed() 同步读 localStorage</span></li><li><b>按钮文案分流</b><span>已登录「进入 Petwise」／未登录「开始使用」</span></li><li><b>replace 跳转</b><span>→ /home 或 /login，不留历史栈</span></li></ol>
+    <p class="kv"><b>入口</b>App 冷启动</p>
+    <p class="kv"><b>数据源</b>petwise_auth / → authApi.me()</p>
+    <p class="kv"><b>出口</b>/home / /login</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-splash"></div>
+  </div>
+</section>
+<section id="login" class="page">
+  <div class="head">
+    <h2>登录 Login <code>/login （public）</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 338" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="338" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">登录 Login</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/login （public）</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="26.2" height="22" width="52.5" fill="#EAF1EC"/><text x="44.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">启动页</text><rect x="78.5" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="110.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">守卫拦截</text><rect x="150.5" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="182.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">退出登录</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">双 Tab 切换</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">验证码 / 密码两种模式</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">格式校验</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">手机号 /^1[3-9]\d{9}$/</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">，验证码 6 位，密码 ≥6</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">获取验证码</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">60s 倒计时 + Toast 演</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">示提示</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">提交登录</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">700ms 模拟 → login()</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">写 petwise_auth → 回</text><text x="540" y="163.0" font-size="10.5" fill="#5C6B62">跳</text>
+<rect x="18" y="190" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· 未勾选协议 → Toast 拦截，不发请求</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 微信登录 / 注册 / 忘记密码 → ⬜ Toast 占位</text><text x="30" y="258" font-size="11" fill="#1F2E26">· 加载态：按钮 spinner + disabled</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="272" rx="44.4" height="22" width="88.84" fill="#EFEDE7"/><text x="62.4" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">ops.login()</text><rect x="114.8" y="272" rx="111.4" height="22" width="222.70000000000002" fill="#EFEDE7"/><text x="226.2" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ authApi.sendCode / login / me</text>
+<text x="18" y="306" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="304" rx="55.2" height="22" width="110.46000000000001" fill="#F8F1DF"/><text x="73.2" y="319" text-anchor="middle" font-size="11.5" fill="#8A6A1E">redirect 原路径</text><rect x="136.5" y="304" rx="25.1" height="22" width="50.2" fill="#F8F1DF"/><text x="161.6" y="319" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/home</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>双 Tab 切换</b><span>验证码 / 密码两种模式</span></li><li><b>格式校验</b><span>手机号 /^1[3-9]\d{9}$/，验证码 6 位，密码 ≥6</span></li><li><b>获取验证码</b><span>60s 倒计时 + Toast 演示提示</span></li><li><b>提交登录</b><span>700ms 模拟 → login() 写 petwise_auth → 回跳</span></li></ol>
+    <p class="kv"><b>入口</b>启动页 / 守卫拦截 / 退出登录</p>
+    <p class="kv"><b>数据源</b>ops.login() / → authApi.sendCode / login / me</p>
+    <p class="kv"><b>出口</b>redirect 原路径 / /home</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-login"></div>
+  </div>
+</section>
+<section id="home" class="page">
+  <div class="head">
+    <h2>首页 Home <code>/home</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 436" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="436" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">首页 Home</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/home</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="44.9" height="22" width="89.76" fill="#EAF1EC"/><text x="62.9" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock「今日」</text><rect x="115.8" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="159.3" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">登录成功回跳</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">问候语分档</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">按小时：夜深了/早安/午安</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">/下午好/晚安</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">平台公告</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">折叠卡：active 且未被</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">dismissed</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">宠物切换</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">Tab + 头像，hero/趋势/</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">提醒三处联动</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">主角卡</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">健康分环 ≥85 绿 / ≥</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">70 黄 / &lt;70 红</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">今日提醒</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">「知道了」⚠ 只 Toast</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">不落盘</text><line x1="169" y1="218.0" x2="184" y2="218.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 218.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">快捷磁贴</text><text x="200" y="222.0" font-size="10.5" fill="#5C6B62">AI 问诊（3 次/日）/ 识</text><text x="200" y="235.5" font-size="10.5" fill="#5C6B62">别 / 社区 / 档案</text><line x1="339" y1="218.0" x2="354" y2="218.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 218.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">本周趋势</text><text x="370" y="222.0" font-size="10.5" fill="#5C6B62">7 天均值 + 柱状图（优→</text><text x="370" y="235.5" font-size="10.5" fill="#5C6B62">珊瑚）</text>
+<rect x="18" y="276" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 公告区无数据整块不渲染</text><text x="30" y="328" font-size="11" fill="#1F2E26">· 全页无加载态、无错误态</text>
+<text x="18" y="370" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="342" rx="79.2" height="22" width="158.3" fill="#EFEDE7"/><text x="97.2" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.pets → GET /pets</text><rect x="184.3" y="342" rx="88.8" height="22" width="177.62" fill="#EFEDE7"/><text x="273.1" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">petTrends → health-trend</text><rect x="369.9" y="342" rx="88.8" height="22" width="177.62" fill="#EFEDE7"/><text x="458.7" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">petReminders → reminders</text><rect x="18.0" y="370" rx="121.0" height="22" width="242.02" fill="#EFEDE7"/><text x="139.0" y="385" text-anchor="middle" font-size="11.5" fill="#1F2E26">announcements → GET /announcements</text>
+<text x="18" y="404" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="402" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="417" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/recognize</text><rect x="108.4" y="402" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="152.8" y="417" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai</text><rect x="205.2" y="402" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="246.4" y="417" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/community</text><rect x="295.6" y="402" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="330.4" y="417" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/pet/:id</text><rect x="373.2" y="402" rx="38.0" height="22" width="75.96000000000001" fill="#F8F1DF"/><text x="411.1" y="417" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/schedule</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>问候语分档</b><span>按小时：夜深了/早安/午安/下午好/晚安</span></li><li><b>平台公告</b><span>折叠卡：active 且未被 dismissed</span></li><li><b>宠物切换</b><span>Tab + 头像，hero/趋势/提醒三处联动</span></li><li><b>主角卡</b><span>健康分环 ≥85 绿 / ≥70 黄 / &lt;70 红</span></li><li><b>今日提醒</b><span>「知道了」⚠ 只 Toast 不落盘</span></li><li><b>快捷磁贴</b><span>AI 问诊（3 次/日）/ 识别 / 社区 / 档案</span></li><li><b>本周趋势</b><span>7 天均值 + 柱状图（优→珊瑚）</span></li></ol>
+    <p class="kv"><b>入口</b>Dock「今日」 / 登录成功回跳</p>
+    <p class="kv"><b>数据源</b>mock.pets → GET /pets / petTrends → health-trend / petReminders → reminders / announcements → GET /announcements</p>
+    <p class="kv"><b>出口</b>/recognize / /consult/ai / /community / /pet/:id / /schedule</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-home"></div>
+  </div>
+</section>
+<section id="recognize" class="page">
+  <div class="head">
+    <h2>拍照识别 Recognize <code>/recognize</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 354" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="354" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">拍照识别 Recognize</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/recognize</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">首页磁贴</text><rect x="90.0" y="64" rx="55.0" height="22" width="110.0" fill="#EAF1EC"/><text x="145.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→＋添加宠物</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">触发识别</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">快门 runScan() 1600ms</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">/ 相册选图 / 示例库</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">取景框四态</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">真实照片→放入框内→识别</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">中扫描线→结果</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">结果卡</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">品种 + 置信度 + 4 项指</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">标（good/watch）</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">后续操作</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">重新识别 / 保存记录 /</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">百科 / 问医生</text>
+<rect x="18" y="190" rx="10" width="644" height="82" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· 相册：真实 input file + createObjectURL 预览</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 示例库卡片立即出结果无延迟</text><text x="30" y="258" font-size="11" fill="#1F2E26">· ⚠ 指标为 mock 写死，页面无分级算法</text><text x="30" y="274" font-size="11" fill="#1F2E26">· ⚠ history 存内存，刷新丢失</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="288" rx="83.1" height="22" width="166.12" fill="#EFEDE7"/><text x="101.1" y="303" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.recognitionSamples</text><rect x="192.1" y="288" rx="147.9" height="22" width="295.84000000000003" fill="#EFEDE7"/><text x="340.0" y="303" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ POST /recognitions（multipart 调 vision）</text>
+<text x="18" y="322" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="320" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="335" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/breed/:id</text><rect x="108.4" y="320" rx="79.8" height="22" width="159.68" fill="#F8F1DF"/><text x="188.2" y="335" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai?pet=&amp;note=</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>触发识别</b><span>快门 runScan() 1600ms / 相册选图 / 示例库</span></li><li><b>取景框四态</b><span>真实照片→放入框内→识别中扫描线→结果</span></li><li><b>结果卡</b><span>品种 + 置信度 + 4 项指标（good/watch）</span></li><li><b>后续操作</b><span>重新识别 / 保存记录 / 百科 / 问医生</span></li></ol>
+    <p class="kv"><b>入口</b>首页磁贴 / 我的→＋添加宠物</p>
+    <p class="kv"><b>数据源</b>mock.recognitionSamples / → POST /recognitions（multipart 调 vision）</p>
+    <p class="kv"><b>出口</b>/breed/:id / /consult/ai?pet=&amp;note=</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-recognize"></div>
+  </div>
+</section>
+<section id="breed" class="page">
+  <div class="head">
+    <h2>品种百科 BreedDetail <code>/breed/:id</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 392" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="392" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">品种百科 BreedDetail</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/breed/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="66.5" height="22" width="133.0" fill="#EAF1EC"/><text x="84.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">识别结果「品种百科」</text><rect x="159.0" y="64" rx="20.5" height="22" width="41.0" fill="#EAF1EC"/><text x="179.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">收藏</text><rect x="208.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="240.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">社区帖子</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">查表解析</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">id 精确 → name 匹配 →</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62"> 未命中提示</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">档案 hero</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">插图 + 中文名 + 拉丁名</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">+ 科属 + 原产地</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">体重 / 寿命</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">双栏数据</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">三大区块</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">01 性格特质 chips /</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">02 易患问题 / 03 护理要</text><text x="540" y="163.0" font-size="10.5" fill="#5C6B62">点</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">底部 CTA</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">「就这个品种问一问」带上</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">下文跳转</text>
+<rect x="18" y="276" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 演示库 6 品种：英短/柯基/布偶/金毛/田园猫/暹罗</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="326" rx="63.7" height="22" width="127.48" fill="#EFEDE7"/><text x="81.7" y="341" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.breedLibrary</text><rect x="153.5" y="326" rx="110.7" height="22" width="221.32000000000002" fill="#EFEDE7"/><text x="264.1" y="341" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /breeds、GET /breeds/{id}</text>
+<text x="18" y="360" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="358" rx="79.8" height="22" width="159.68" fill="#F8F1DF"/><text x="97.8" y="373" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai?pet=&amp;note=</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>查表解析</b><span>id 精确 → name 匹配 → 未命中提示</span></li><li><b>档案 hero</b><span>插图 + 中文名 + 拉丁名 + 科属 + 原产地</span></li><li><b>体重 / 寿命</b><span>双栏数据</span></li><li><b>三大区块</b><span>01 性格特质 chips / 02 易患问题 / 03 护理要点</span></li><li><b>底部 CTA</b><span>「就这个品种问一问」带上下文跳转</span></li></ol>
+    <p class="kv"><b>入口</b>识别结果「品种百科」 / 收藏 / 社区帖子</p>
+    <p class="kv"><b>数据源</b>mock.breedLibrary / → GET /breeds、GET /breeds/{id}</p>
+    <p class="kv"><b>出口</b>/consult/ai?pet=&amp;note=</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-breed"></div>
+  </div>
+</section>
+<section id="pet" class="page">
+  <div class="head">
+    <h2>宠物档案 PetProfile <code>/pet/:id</code>
+      <span class="badge" style="color:#3E6B57;background:#EAF1EC">已实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 452" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="452" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">宠物档案 PetProfile</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/pet/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#EAF1EC"/>
+<circle cx="586" cy="29" r="3.4" fill="#3E6B57"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#3E6B57">已实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="67.9" height="22" width="135.76" fill="#EAF1EC"/><text x="85.9" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">首页「健康档案」chip</text><rect x="161.8" y="64" rx="49.2" height="22" width="98.5" fill="#EAF1EC"/><text x="211.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→宠物卡片</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">档案 hero</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">基础信息 + 健康分</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">＋ 记录体重</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">预填当前体重，step 0.1</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">类型 chip 4 种</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">体重/饮食/症状/护理，仅</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">体重有数字框</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">保存校验</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">date 必有 + 体重有值或</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">有备注</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">趋势合成</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">归月取最新 → 覆盖/追加</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62"> → 排序 → 柱高归一</text><line x1="169" y1="218.0" x2="184" y2="218.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 218.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">记录时间轴</text><text x="200" y="222.0" font-size="10.5" fill="#5C6B62">用户录入置顶 + 3 条内置</text>
+<rect x="18" y="276" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 症状类自动标黄（watch）</text><text x="30" y="328" font-size="11" fill="#1F2E26">· diff&gt;0.05 略增 / &lt;-0.05 略减 / 否则稳定</text><text x="30" y="344" font-size="11" fill="#1F2E26">· 宠物不存在 → 「未找到该宠物档案」</text>
+<text x="18" y="370" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="358" rx="139.2" height="22" width="278.36" fill="#EFEDE7"/><text x="157.2" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_pet_records（与报告归档共用同一键）</text><rect x="18.0" y="386" rx="133.2" height="22" width="266.4" fill="#EFEDE7"/><text x="151.2" y="401" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET/POST /pets/{id}/weights、records</text>
+<text x="18" y="420" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="418" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="62.4" y="433" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai</text><rect x="114.8" y="418" rx="38.0" height="22" width="75.96000000000001" fill="#F8F1DF"/><text x="152.8" y="433" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/schedule</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>档案 hero</b><span>基础信息 + 健康分</span></li><li><b>＋ 记录体重</b><span>预填当前体重，step 0.1</span></li><li><b>类型 chip 4 种</b><span>体重/饮食/症状/护理，仅体重有数字框</span></li><li><b>保存校验</b><span>date 必有 + 体重有值或有备注</span></li><li><b>趋势合成</b><span>归月取最新 → 覆盖/追加 → 排序 → 柱高归一</span></li><li><b>记录时间轴</b><span>用户录入置顶 + 3 条内置</span></li></ol>
+    <p class="kv"><b>入口</b>首页「健康档案」chip / 我的→宠物卡片</p>
+    <p class="kv"><b>数据源</b>petwise_pet_records（与报告归档共用同一键） / → GET/POST /pets/{id}/weights、records</p>
+    <p class="kv"><b>出口</b>/consult/ai / /schedule</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-pet"></div>
+  </div>
+</section>
+<section id="schedule" class="page">
+  <div class="head">
+    <h2>日程与提醒 Schedule <code>/schedule</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 366" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="366" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">日程与提醒 Schedule</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/schedule</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="55.0" height="22" width="110.0" fill="#EAF1EC"/><text x="73.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→提醒与日程</text><rect x="136.0" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="179.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">首页今日提醒</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">筛选 chip</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">全部 + 每只宠物</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">＋ 新建</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">归属宠物继承当前筛选</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">6 类类型</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">疫苗/驱虫/体检/称重/洗</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">护/自定义</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">完成 / 撤销</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">✓ Toast「已完成」/ 撤</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">销回待办</text>
+<rect x="18" y="190" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· 逾期：diff&lt;0 加红标，不单独分组</text><text x="30" y="242" font-size="11" fill="#1F2E26">· dateText：今天/明天/后天/N 天前/N 天后</text><text x="30" y="258" font-size="11" fill="#1F2E26">· ⚠「全部」筛选时空态文案仍称「这只宠物」</text>
+<text x="18" y="284" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="272" rx="76.6" height="22" width="153.24" fill="#EFEDE7"/><text x="94.6" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_schedule_done</text><rect x="179.2" y="272" rx="83.1" height="22" width="166.12" fill="#EFEDE7"/><text x="262.3" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_schedule_custom</text><rect x="18.0" y="300" rx="116.4" height="22" width="232.82000000000002" fill="#EFEDE7"/><text x="134.4" y="315" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /schedule、POST、PATCH done</text>
+<text x="18" y="334" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="332" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="347" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>筛选 chip</b><span>全部 + 每只宠物</span></li><li><b>＋ 新建</b><span>归属宠物继承当前筛选</span></li><li><b>6 类类型</b><span>疫苗/驱虫/体检/称重/洗护/自定义</span></li><li><b>完成 / 撤销</b><span>✓ Toast「已完成」/ 撤销回待办</span></li></ol>
+    <p class="kv"><b>入口</b>我的→提醒与日程 / 首页今日提醒</p>
+    <p class="kv"><b>数据源</b>petwise_schedule_done / petwise_schedule_custom / → GET /schedule、POST、PATCH done</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-schedule"></div>
+  </div>
+</section>
+<section id="hub" class="page">
+  <div class="head">
+    <h2>问诊中枢 ConsultHub <code>/consult</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 260" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="260" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊中枢 ConsultHub</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/consult</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="61.0" height="22" width="121.96000000000001" fill="#EAF1EC"/><text x="79.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 中央凸起 FAB</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">三大入口</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">AI 智能问诊 / 结构化预</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">问诊 / 真人医生</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">问诊记录</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">带计数入口</text>
+
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="194" rx="21.9" height="22" width="43.760000000000005" fill="#EFEDE7"/><text x="39.9" y="209" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock</text><rect x="69.8" y="194" rx="46.7" height="22" width="93.44" fill="#EFEDE7"/><text x="116.5" y="209" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ 各问诊接口</text>
+<text x="18" y="228" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="226" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="62.4" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai</text><rect x="114.8" y="226" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="159.3" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/preconsult</text><rect x="211.7" y="226" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="246.4" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctors</text><rect x="289.2" y="226" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="324.0" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/records</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>三大入口</b><span>AI 智能问诊 / 结构化预问诊 / 真人医生</span></li><li><b>问诊记录</b><span>带计数入口</span></li></ol>
+    <p class="kv"><b>入口</b>Dock 中央凸起 FAB</p>
+    <p class="kv"><b>数据源</b>mock / → 各问诊接口</p>
+    <p class="kv"><b>出口</b>/consult/ai / /preconsult / /doctors / /records</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-hub"></div>
+  </div>
+</section>
+<section id="consult" class="page">
+  <div class="head">
+    <h2>AI 智能问诊 Consult <code>/consult/ai</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 456" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="456" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">AI 智能问诊 Consult</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/consult/ai</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">首页磁贴</text><rect x="90.0" y="64" rx="49.2" height="22" width="98.5" fill="#EAF1EC"/><text x="139.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">识别结果问医生</text><rect x="196.5" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="228.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">档案问诊</text><rect x="268.5" y="64" rx="33.4" height="22" width="66.76" fill="#EAF1EC"/><text x="301.9" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">百科 CTA</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">带上下文进入</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">query.pet/note → AI</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">首条问候</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">守卫 1</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">输入为空或 typing 中 →</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62"> return</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">守卫 2</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">额度 ≤0 → Toast + 跳</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">医生列表</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">发送</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">push me → 1300ms →</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">分诊卡/文本+3 chip</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">回复后扣额度</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">consumeAiQuota() 在回</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">复生成之后</text>
+<rect x="18" y="276" rx="10" width="644" height="98" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· ⚠ 非真流式：typing 占位 + 一次性插入</text><text x="30" y="328" font-size="11" fill="#1F2E26">· 上下文横幅可 × 清除</text><text x="30" y="344" font-size="11" fill="#1F2E26">· emergency → 急诊告警条 + 急诊按钮</text><text x="30" y="360" font-size="11" fill="#1F2E26">· 额度条常驻「剩余 n/3」</text><text x="30" y="376" font-size="11" fill="#1F2E26">· 转真人写 sessionStorage 病例摘要</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="390" rx="67.4" height="22" width="134.84" fill="#EFEDE7"/><text x="85.4" y="405" text-anchor="middle" font-size="11.5" fill="#1F2E26">ops AI 配额 3 次/日</text><rect x="160.8" y="390" rx="133.9" height="22" width="267.78" fill="#EFEDE7"/><text x="294.7" y="405" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ agent SSE /internal/v1/triage/stream</text>
+<text x="18" y="424" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="422" rx="75.2" height="22" width="150.48000000000002" fill="#F8F1DF"/><text x="93.2" y="437" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctors（goDoctors）</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>带上下文进入</b><span>query.pet/note → AI 首条问候</span></li><li><b>守卫 1</b><span>输入为空或 typing 中 → return</span></li><li><b>守卫 2</b><span>额度 ≤0 → Toast + 跳医生列表</span></li><li><b>发送</b><span>push me → 1300ms → 分诊卡/文本+3 chip</span></li><li><b>回复后扣额度</b><span>consumeAiQuota() 在回复生成之后</span></li></ol>
+    <p class="kv"><b>入口</b>首页磁贴 / 识别结果问医生 / 档案问诊 / 百科 CTA</p>
+    <p class="kv"><b>数据源</b>ops AI 配额 3 次/日 / → agent SSE /internal/v1/triage/stream</p>
+    <p class="kv"><b>出口</b>/doctors（goDoctors）</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-consult"></div>
+  </div>
+</section>
+<section id="preconsult" class="page">
+  <div class="head">
+    <h2>结构化预问诊 PreConsult <code>/preconsult</code>
+      <span class="badge" style="color:#3E6B57;background:#EAF1EC">已实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 424" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="424" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">结构化预问诊 PreConsult</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/preconsult</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#EAF1EC"/>
+<circle cx="586" cy="29" r="3.4" fill="#3E6B57"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#3E6B57">已实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">问诊中枢</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">7 步问卷</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">宠物→部位8→症状多选→</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">时长→精神进食→伴随→补</text><text x="30" y="163.0" font-size="10.5" fill="#5C6B62">充</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">逐步校验</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">必选/至少1项/切换部位清</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">空症状</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">评分引擎</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">redFlag 8 条一票否决 →</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62"> emergency,10</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">加权累加</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">时长0-3 + 严重度0-4 +</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">加重项 + 伴随</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">分级产出</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">score≥3 urgent，否则</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">home</text><line x1="169" y1="218.0" x2="184" y2="218.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 218.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">生成报告</text><text x="200" y="222.0" font-size="10.5" fill="#5C6B62">factor 可解释 →</text><text x="200" y="235.5" font-size="10.5" fill="#5C6B62">saveReport → replace</text>
+<rect x="18" y="276" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 高危即时告警 + 急诊直达，但不打断问卷</text><text x="30" y="328" font-size="11" fill="#1F2E26">· ⚠ 无草稿机制，中途退出全丢失</text><text x="30" y="344" font-size="11" fill="#1F2E26">· 照片上传 ⬜ 数量模拟</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="358" rx="105.8" height="22" width="211.66" fill="#EFEDE7"/><text x="123.8" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/triage.js（与后端约定一致）</text><rect x="237.7" y="358" rx="82.4" height="22" width="164.74" fill="#EFEDE7"/><text x="320.0" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ POST /consult/triage</text>
+<text x="18" y="392" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="390" rx="47.6" height="22" width="95.28" fill="#F8F1DF"/><text x="65.6" y="405" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/report/&lt;id&gt;</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>7 步问卷</b><span>宠物→部位8→症状多选→时长→精神进食→伴随→补充</span></li><li><b>逐步校验</b><span>必选/至少1项/切换部位清空症状</span></li><li><b>评分引擎</b><span>redFlag 8 条一票否决 → emergency,10</span></li><li><b>加权累加</b><span>时长0-3 + 严重度0-4 + 加重项 + 伴随</span></li><li><b>分级产出</b><span>score≥3 urgent，否则 home</span></li><li><b>生成报告</b><span>factor 可解释 → saveReport → replace</span></li></ol>
+    <p class="kv"><b>入口</b>问诊中枢</p>
+    <p class="kv"><b>数据源</b>data/triage.js（与后端约定一致） / → POST /consult/triage</p>
+    <p class="kv"><b>出口</b>/report/&lt;id&gt;</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-preconsult"></div>
+  </div>
+</section>
+<section id="doctors" class="page">
+  <div class="head">
+    <h2>医生列表 Doctors <code>/doctors</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">医生列表 Doctors</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/doctors</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="41.7" height="22" width="83.32000000000001" fill="#EAF1EC"/><text x="59.7" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">AI 问诊升级</text><rect x="109.3" y="64" rx="37.8" height="22" width="75.5" fill="#EAF1EC"/><text x="147.1" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">预问诊高危</text><rect x="192.8" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="236.3" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">报告页转真人</text><rect x="287.8" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="319.8" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">问诊中枢</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">科室 chip</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">8 科室，query.dept 统</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">一推导</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">排序</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">在线优先 → 评分降 →</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">响应升</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">医生卡片</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">评分/接诊量/¥19 起/响</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">应时间</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">AI 病例摘要卡</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">读 sessionStorage，可</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">展开</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· 空态：「该科室暂无在线医生…」</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="121.7" height="22" width="243.4" fill="#EFEDE7"/><text x="139.7" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">sessionStorage petwise_case_summary</text><rect x="269.4" y="240" rx="117.8" height="22" width="235.58" fill="#EFEDE7"/><text x="387.2" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.doctors → GET /doctors?dept=</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="62.4" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctor/:id</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>科室 chip</b><span>8 科室，query.dept 统一推导</span></li><li><b>排序</b><span>在线优先 → 评分降 → 响应升</span></li><li><b>医生卡片</b><span>评分/接诊量/¥19 起/响应时间</span></li><li><b>AI 病例摘要卡</b><span>读 sessionStorage，可展开</span></li></ol>
+    <p class="kv"><b>入口</b>AI 问诊升级 / 预问诊高危 / 报告页转真人 / 问诊中枢</p>
+    <p class="kv"><b>数据源</b>sessionStorage petwise_case_summary / mock.doctors → GET /doctors?dept=</p>
+    <p class="kv"><b>出口</b>/doctor/:id</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-doctors"></div>
+  </div>
+</section>
+<section id="doctor" class="page">
+  <div class="head">
+    <h2>医生详情 DoctorDetail <code>/doctor/:id</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 392" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="392" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">医生详情 DoctorDetail</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/doctor/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="61.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">医生列表卡片</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">医生 hero</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">评分/接诊量/执业年三宫格</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">排班与擅长</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">排班条 + 擅长领域 + 资</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">质</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">病例摘要区</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">有摘要可补充，无摘要手填</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">方式三选一</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">图文 ¥19 / 电话 ¥39</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">/ 视频 ¥59</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">提交下单</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">createConsultOrder →</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62"> replace 问诊室</text>
+<rect x="18" y="276" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 底部提示：接诊前可取消全额退款</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="326" rx="21.9" height="22" width="43.760000000000005" fill="#EFEDE7"/><text x="39.9" y="341" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock</text><rect x="69.8" y="326" rx="82.4" height="22" width="164.74" fill="#EFEDE7"/><text x="152.1" y="341" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ POST /consult/orders</text>
+<text x="18" y="360" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="358" rx="83.1" height="22" width="166.12" fill="#F8F1DF"/><text x="101.1" y="373" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consultation/&lt;orderId&gt;</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>医生 hero</b><span>评分/接诊量/执业年三宫格</span></li><li><b>排班与擅长</b><span>排班条 + 擅长领域 + 资质</span></li><li><b>病例摘要区</b><span>有摘要可补充，无摘要手填</span></li><li><b>方式三选一</b><span>图文 ¥19 / 电话 ¥39 / 视频 ¥59</span></li><li><b>提交下单</b><span>createConsultOrder → replace 问诊室</span></li></ol>
+    <p class="kv"><b>入口</b>医生列表卡片</p>
+    <p class="kv"><b>数据源</b>mock / → POST /consult/orders</p>
+    <p class="kv"><b>出口</b>/consultation/&lt;orderId&gt;</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-doctor"></div>
+  </div>
+</section>
+<section id="room" class="page">
+  <div class="head">
+    <h2>问诊室 ConsultationRoom <code>/consultation/:id</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 424" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="424" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊室 ConsultationRoom</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/consultation/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="61.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">医生详情下单</text><rect x="113.0" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="156.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">问诊记录点击</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">进入</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">系统条「已提交，N 分钟内</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">接诊」</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">医生首轮</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">1500ms 后「已看过 AI 初</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">步判断…」</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">对话脚本</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">用户发 → 1200ms</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">typing → 下一条</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">处方卡</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">第 2 轮后 900ms 推送</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">rx 卡片</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">状态流转</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">pending → replied</text>
+<rect x="18" y="276" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 通话卡：视频→发起视频 / 电话→呼叫 ⬜ 仅 Toast</text><text x="30" y="328" font-size="11" fill="#1F2E26">· ⚠ state=replied 只改内存，刷新回 pending</text><text x="30" y="344" font-size="11" fill="#1F2E26">· 消息类型：system/text/rx</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="358" rx="120.1" height="22" width="240.18" fill="#EFEDE7"/><text x="138.1" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_consult_orders（消息持久化）</text><rect x="266.2" y="358" rx="43.7" height="22" width="87.46000000000001" fill="#EFEDE7"/><text x="309.9" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ WS / SSE</text>
+<text x="18" y="392" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="390" rx="61.4" height="22" width="122.88" fill="#F8F1DF"/><text x="79.4" y="405" text-anchor="middle" font-size="11.5" fill="#8A6A1E">评价弹层 → 报告页</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>进入</b><span>系统条「已提交，N 分钟内接诊」</span></li><li><b>医生首轮</b><span>1500ms 后「已看过 AI 初步判断…」</span></li><li><b>对话脚本</b><span>用户发 → 1200ms typing → 下一条</span></li><li><b>处方卡</b><span>第 2 轮后 900ms 推送 rx 卡片</span></li><li><b>状态流转</b><span>pending → replied</span></li></ol>
+    <p class="kv"><b>入口</b>医生详情下单 / 问诊记录点击</p>
+    <p class="kv"><b>数据源</b>petwise_consult_orders（消息持久化） / → WS / SSE</p>
+    <p class="kv"><b>出口</b>评价弹层 → 报告页</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-room"></div>
+  </div>
+</section>
+<section id="report" class="page">
+  <div class="head">
+    <h2>问诊报告 Report <code>/report/:id</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 424" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="424" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊报告 Report</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/report/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="37.8" height="22" width="75.5" fill="#EAF1EC"/><text x="55.8" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">预问诊产出</text><rect x="101.5" y="64" rx="55.0" height="22" width="110.0" fill="#EAF1EC"/><text x="156.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">问诊室评价后生成</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">封面</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">类型徽标 ai/human</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">主诉分区</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">表现/持续/状态/伴随/补</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">充/附件</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">分诊结论</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">TriageCard，置信度</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">emergency→高</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">评分依据</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">factor 逐条 +w，</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">danger 标红</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">医生建议/用药/复查</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">human 报告含 rx 结构化</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">处方</text>
+<rect x="18" y="276" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· 存入档案 → petwise_pet_records（幂等）</text><text x="30" y="328" font-size="11" fill="#1F2E26">· 用药提醒 → 次日用药 + 复查日程（home +3 天 / 其它 +7 天）</text><text x="30" y="344" font-size="11" fill="#1F2E26">· 导出 ⬜ 仅 Toast 提示截图</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="358" rx="52.7" height="22" width="105.4" fill="#EFEDE7"/><text x="70.7" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">reports（ops）</text><rect x="131.4" y="358" rx="98.5" height="22" width="196.94" fill="#EFEDE7"/><text x="229.9" y="373" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /consult/reports/{id}</text>
+<text x="18" y="392" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="390" rx="54.1" height="22" width="108.16000000000001" fill="#F8F1DF"/><text x="72.1" y="405" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctors?dept=</text><rect x="134.2" y="390" rx="32.0" height="22" width="64.0" fill="#F8F1DF"/><text x="166.2" y="405" text-anchor="middle" font-size="11.5" fill="#8A6A1E">健康档案</text><rect x="206.2" y="390" rx="20.5" height="22" width="41.0" fill="#F8F1DF"/><text x="226.7" y="405" text-anchor="middle" font-size="11.5" fill="#8A6A1E">日程</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>封面</b><span>类型徽标 ai/human</span></li><li><b>主诉分区</b><span>表现/持续/状态/伴随/补充/附件</span></li><li><b>分诊结论</b><span>TriageCard，置信度 emergency→高</span></li><li><b>评分依据</b><span>factor 逐条 +w，danger 标红</span></li><li><b>医生建议/用药/复查</b><span>human 报告含 rx 结构化处方</span></li></ol>
+    <p class="kv"><b>入口</b>预问诊产出 / 问诊室评价后生成</p>
+    <p class="kv"><b>数据源</b>reports（ops） / → GET /consult/reports/{id}</p>
+    <p class="kv"><b>出口</b>/doctors?dept= / 健康档案 / 日程</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-report"></div>
+  </div>
+</section>
+<section id="records" class="page">
+  <div class="head">
+    <h2>问诊记录 Records <code>/records</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊记录 Records</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/records</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="49.2" height="22" width="98.5" fill="#EAF1EC"/><text x="67.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→问诊记录</text><rect x="124.5" y="64" rx="42.4" height="22" width="84.7" fill="#EAF1EC"/><text x="166.8" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 问诊域</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">Tab 切换</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">全部 / 智能问诊 / 真人</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">医生（带计数）</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">三源聚合</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">[...报告, ...订单, ...</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">内置] 固定顺序</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">卡片渲染</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">类型/标题/日期/摘要/宠</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">物/医生/状态</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">点击跳转</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">reportId 优先 → 报告页</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">，orderId → 问诊室</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ AI 内置记录两者皆空 → 点击无反应</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 状态：AI 已完成 / pending 待接诊 / replied 已回复</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="18.7" height="22" width="37.32" fill="#EFEDE7"/><text x="36.7" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">ops</text><rect x="63.3" y="256" rx="82.4" height="22" width="164.74" fill="#EFEDE7"/><text x="145.7" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /consult/records</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="62.4" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/report/:id</text><rect x="114.8" y="288" rx="63.7" height="22" width="127.48" fill="#F8F1DF"/><text x="178.6" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consultation/:id</text><rect x="250.3" y="288" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="294.7" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai</text><rect x="347.2" y="288" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="381.9" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctors</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>Tab 切换</b><span>全部 / 智能问诊 / 真人医生（带计数）</span></li><li><b>三源聚合</b><span>[...报告, ...订单, ...内置] 固定顺序</span></li><li><b>卡片渲染</b><span>类型/标题/日期/摘要/宠物/医生/状态</span></li><li><b>点击跳转</b><span>reportId 优先 → 报告页，orderId → 问诊室</span></li></ol>
+    <p class="kv"><b>入口</b>我的→问诊记录 / Dock 问诊域</p>
+    <p class="kv"><b>数据源</b>ops / → GET /consult/records</p>
+    <p class="kv"><b>出口</b>/report/:id / /consultation/:id / /consult/ai / /doctors</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-records"></div>
+  </div>
+</section>
+<section id="community" class="page">
+  <div class="head">
+    <h2>宠物社区 Community <code>/community</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 338" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="338" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">宠物社区 Community</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/community</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="36.6" height="22" width="73.2" fill="#EAF1EC"/><text x="54.6" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 社区</text><rect x="99.2" y="64" rx="43.0" height="22" width="86.08" fill="#EAF1EC"/><text x="142.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">首页 Banner</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">Tab 推荐/关注</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">关注流 = 奇数下标（模拟</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">关系）</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">话题 chip</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">6 话题，再点取消</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">点赞 / 评论</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">本地 ±1 + 动画 / 面板</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">打开重置 mock</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">发布</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">≤3 图，发布后回推荐 +</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">清筛选</text>
+<rect x="18" y="190" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 内容不持久化，刷新丢失</text><text x="30" y="242" font-size="11" fill="#1F2E26">· ⬜ 关注/分享按钮纯装饰</text><text x="30" y="258" font-size="11" fill="#1F2E26">· 图片为色块占位，非真实上传</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="272" rx="41.2" height="22" width="82.4" fill="#EFEDE7"/><text x="59.2" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.posts</text><rect x="108.4" y="272" rx="50.2" height="22" width="100.34" fill="#EFEDE7"/><text x="158.6" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /posts</text>
+<text x="18" y="306" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="304" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="319" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/breed/:id</text><rect x="108.4" y="304" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="143.2" y="319" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/pet/:id</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>Tab 推荐/关注</b><span>关注流 = 奇数下标（模拟关系）</span></li><li><b>话题 chip</b><span>6 话题，再点取消</span></li><li><b>点赞 / 评论</b><span>本地 ±1 + 动画 / 面板打开重置 mock</span></li><li><b>发布</b><span>≤3 图，发布后回推荐 + 清筛选</span></li></ol>
+    <p class="kv"><b>入口</b>Dock 社区 / 首页 Banner</p>
+    <p class="kv"><b>数据源</b>mock.posts / → GET /posts</p>
+    <p class="kv"><b>出口</b>/breed/:id / /pet/:id</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-community"></div>
+  </div>
+</section>
+<section id="chatlist" class="page">
+  <div class="head">
+    <h2>消息列表 ChatList <code>/chat</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">消息列表 ChatList</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/chat</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="36.6" height="22" width="73.2" fill="#EAF1EC"/><text x="54.6" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 消息</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">会话列表</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">头像/在线点/最后一条/时</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">间</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">未读徽标</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">mock 合计 2，Dock 同步</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">类型 pill</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">兽医 / 群聊 / 好友</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 未读不清零、无搜索</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="41.2" height="22" width="82.4" fill="#EFEDE7"/><text x="59.2" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.chats</text><rect x="108.4" y="240" rx="79.2" height="22" width="158.3" fill="#EFEDE7"/><text x="187.6" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ imApi.conversations</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="38.0" height="22" width="75.96000000000001" fill="#F8F1DF"/><text x="56.0" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/chat/:id</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>会话列表</b><span>头像/在线点/最后一条/时间</span></li><li><b>未读徽标</b><span>mock 合计 2，Dock 同步</span></li><li><b>类型 pill</b><span>兽医 / 群聊 / 好友</span></li></ol>
+    <p class="kv"><b>入口</b>Dock 消息</p>
+    <p class="kv"><b>数据源</b>mock.chats / → imApi.conversations</p>
+    <p class="kv"><b>出口</b>/chat/:id</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-chatlist"></div>
+  </div>
+</section>
+<section id="chatroom" class="page">
+  <div class="head">
+    <h2>聊天室 ChatRoom <code>/chat/:id</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">聊天室 ChatRoom</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/chat/:id</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="43.5" height="22" width="87.0" fill="#EAF1EC"/><text x="61.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">消息列表会话</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">气泡消息</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">HH:mm 时间戳</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">发送</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">1100ms 对方「正在输入」</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">自动回复</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">固定文案「收到～ 我看看</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">」</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 表情/分享/WebSocket 未实现</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="50.9" height="22" width="101.72" fill="#EFEDE7"/><text x="68.9" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.messages</text><rect x="127.7" y="240" rx="56.6" height="22" width="113.22" fill="#EFEDE7"/><text x="184.3" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ WS /messages</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>气泡消息</b><span>HH:mm 时间戳</span></li><li><b>发送</b><span>1100ms 对方「正在输入」</span></li><li><b>自动回复</b><span>固定文案「收到～ 我看看」</span></li></ol>
+    <p class="kv"><b>入口</b>消息列表会话</p>
+    <p class="kv"><b>数据源</b>mock.messages / → WS /messages</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-chatroom"></div>
+  </div>
+</section>
+<section id="favorites" class="page">
+  <div class="head">
+    <h2>我的收藏 Favorites <code>/favorites</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">我的收藏 Favorites</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/favorites</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="49.2" height="22" width="98.5" fill="#EAF1EC"/><text x="67.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→我的收藏</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">4 类筛选</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">全部 / 品种 / 帖子 / 贴</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">士</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">整行跳转</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">按类型去详情页</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">取消收藏</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">右侧 ×</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 取消只存内存，刷新后收藏复活</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="54.1" height="22" width="108.16000000000001" fill="#EFEDE7"/><text x="72.1" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.favorites</text><rect x="134.2" y="240" rx="63.1" height="22" width="126.10000000000001" fill="#EFEDE7"/><text x="197.2" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /favorites</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/breed/:id</text><rect x="108.4" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="149.6" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/community</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>4 类筛选</b><span>全部 / 品种 / 帖子 / 贴士</span></li><li><b>整行跳转</b><span>按类型去详情页</span></li><li><b>取消收藏</b><span>右侧 ×</span></li></ol>
+    <p class="kv"><b>入口</b>我的→我的收藏</p>
+    <p class="kv"><b>数据源</b>mock.favorites / → GET /favorites</p>
+    <p class="kv"><b>出口</b>/breed/:id / /community</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-favorites"></div>
+  </div>
+</section>
+<section id="profile" class="page">
+  <div class="head">
+    <h2>我的 Profile <code>/profile</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 408" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="408" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">我的 Profile</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/profile</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="36.6" height="22" width="73.2" fill="#EAF1EC"/><text x="54.6" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 我的</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">用户卡</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">脱敏手机 138****8888</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">我的宠物</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">→ 档案；＋添加实际跳识</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">别页</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">功能菜单</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">记录(5)/收藏(4)/日程/反</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">馈/关于</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">意见反馈</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">3 类 → 写</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">petwise_feedbacks</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">退出登录</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">清 auth → replace</text><text x="30" y="235.5" font-size="10.5" fill="#5C6B62">/login</text>
+<rect x="18" y="276" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· ✅ 反馈真实双端闭环（管理端可见）</text><text x="30" y="328" font-size="11" fill="#1F2E26">· ⬜ 编辑资料为 Toast 占位</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="342" rx="63.7" height="22" width="127.48" fill="#EFEDE7"/><text x="81.7" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_feedbacks</text><rect x="153.5" y="342" rx="75.9" height="22" width="151.86" fill="#EFEDE7"/><text x="229.4" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ adminApi.feedbacks</text>
+<text x="18" y="376" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="374" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="52.8" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/records</text><rect x="95.5" y="374" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="136.7" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/favorites</text><rect x="185.9" y="374" rx="38.0" height="22" width="75.96000000000001" fill="#F8F1DF"/><text x="223.9" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/schedule</text><rect x="269.9" y="374" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="311.1" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/recognize</text><rect x="360.3" y="374" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="395.0" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/pet/:id</text><rect x="437.8" y="374" rx="28.3" height="22" width="56.64" fill="#F8F1DF"/><text x="466.1" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/login</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>用户卡</b><span>脱敏手机 138****8888</span></li><li><b>我的宠物</b><span>→ 档案；＋添加实际跳识别页</span></li><li><b>功能菜单</b><span>记录(5)/收藏(4)/日程/反馈/关于</span></li><li><b>意见反馈</b><span>3 类 → 写 petwise_feedbacks</span></li><li><b>退出登录</b><span>清 auth → replace /login</span></li></ol>
+    <p class="kv"><b>入口</b>Dock 我的</p>
+    <p class="kv"><b>数据源</b>petwise_feedbacks / → adminApi.feedbacks</p>
+    <p class="kv"><b>出口</b>/records / /favorites / /schedule / /recognize / /pet/:id / /login</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-profile"></div>
+  </div>
+</section>
+<section id="admin-login" class="page">
+  <div class="head">
+    <h2>管理端登录 Login <code>/login</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">管理端登录 Login</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/login</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="37.8" height="22" width="75.5" fill="#EAF1EC"/><text x="55.8" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">未登录访问</text><rect x="101.5" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="133.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">退出登录</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">账号密码</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">admin / petwise 字符串</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">比对</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">写登录标记</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">petwise_admin_auth =</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">&#x27;1&#x27;</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">守卫分流</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">已登录访问登录页 → 跳看</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">板</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 无 token、无过期、无角色</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="68.1" height="22" width="136.22" fill="#EFEDE7"/><text x="86.1" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">localStorage 单标记</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/dashboard</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>账号密码</b><span>admin / petwise 字符串比对</span></li><li><b>写登录标记</b><span>petwise_admin_auth = &#x27;1&#x27;</span></li><li><b>守卫分流</b><span>已登录访问登录页 → 跳看板</span></li></ol>
+    <p class="kv"><b>入口</b>未登录访问 / 退出登录</p>
+    <p class="kv"><b>数据源</b>localStorage 单标记</p>
+    <p class="kv"><b>出口</b>/dashboard</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-login"></div>
+  </div>
+</section>
+<section id="admin-dashboard" class="page">
+  <div class="head">
+    <h2>数据看板 Dashboard <code>/dashboard</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">数据看板 Dashboard</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/dashboard</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">登录成功</text><rect x="90.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="122.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">4 张指标卡</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">用户 12,846 / 宠物</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">17,230 / 识别 1,342 /</text><text x="30" y="163.0" font-size="10.5" fill="#5C6B62">问诊 386</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">双折线图</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">手写 SVG：识别·珊瑚 /</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">问诊·松绿</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">品种分布</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">进度条（⚠ 分母硬编码</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">30）</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">运营速览</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">3 条（⚠ 数字硬编码）</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 无时间范围切换 / 刷新 / 导出</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 环境标签「CV + LLM 服务正常」为硬编码文案</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="77.1" height="22" width="154.16" fill="#EFEDE7"/><text x="95.1" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/admin.js 静态数组</text><rect x="180.2" y="256" rx="45.6" height="22" width="91.14" fill="#EFEDE7"/><text x="225.7" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">零 HTTP 调用</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="32.0" height="22" width="64.0" fill="#F8F1DF"/><text x="50.0" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">各管理页</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>4 张指标卡</b><span>用户 12,846 / 宠物 17,230 / 识别 1,342 / 问诊 386</span></li><li><b>双折线图</b><span>手写 SVG：识别·珊瑚 / 问诊·松绿</span></li><li><b>品种分布</b><span>进度条（⚠ 分母硬编码 30）</span></li><li><b>运营速览</b><span>3 条（⚠ 数字硬编码）</span></li></ol>
+    <p class="kv"><b>入口</b>登录成功 / 侧栏菜单</p>
+    <p class="kv"><b>数据源</b>data/admin.js 静态数组 / 零 HTTP 调用</p>
+    <p class="kv"><b>出口</b>各管理页</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-dashboard"></div>
+  </div>
+</section>
+<section id="admin-users" class="page">
+  <div class="head">
+    <h2>用户管理 Users <code>/users</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 338" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="338" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">用户管理 Users</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/users</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">搜索 / 筛选</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">姓名或手机号；全部/正常/</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">已冻结</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">列表渲染</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">用户/手机/宠物数/注册时</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">间/状态</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">抽屉详情</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">账号状态卡 + 名下宠物</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">+ 治理操作</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">冻结 / 恢复</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">改内存状态</text>
+<rect x="18" y="190" rx="10" width="644" height="66" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 冻结只改内存，刷新失效</text><text x="30" y="242" font-size="11" fill="#1F2E26">· ⚠ 宠物数按 pets.filter(owner===name) 计算</text><text x="30" y="258" font-size="11" fill="#1F2E26">· ⬜ 重置密码/导出仅 Toast</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="272" rx="50.9" height="22" width="101.72" fill="#EFEDE7"/><text x="68.9" y="287" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/admin.js</text>
+<text x="18" y="306" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="304" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="319" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>搜索 / 筛选</b><span>姓名或手机号；全部/正常/已冻结</span></li><li><b>列表渲染</b><span>用户/手机/宠物数/注册时间/状态</span></li><li><b>抽屉详情</b><span>账号状态卡 + 名下宠物 + 治理操作</span></li><li><b>冻结 / 恢复</b><span>改内存状态</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单</p>
+    <p class="kv"><b>数据源</b>data/admin.js</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-users"></div>
+  </div>
+</section>
+<section id="admin-records" class="page">
+  <div class="head">
+    <h2>识别记录 Records <code>/records</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">识别记录 Records</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/records</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">列表渲染</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">编号/用户/宠物/结果/置</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">信度/时间/状态</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">置信度分级</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">≥0.85 good / ≥0.60</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">mid / &lt;0.60 low</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 无排序/分页/详情/复核动作</text><text x="30" y="242" font-size="11" fill="#1F2E26">· ⚠ 不读 Settings 里的置信度阈值</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="65.6" height="22" width="131.16000000000003" fill="#EFEDE7"/><text x="83.6" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/admin.js 静态</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>列表渲染</b><span>编号/用户/宠物/结果/置信度/时间/状态</span></li><li><b>置信度分级</b><span>≥0.85 good / ≥0.60 mid / &lt;0.60 low</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单</p>
+    <p class="kv"><b>数据源</b>data/admin.js 静态</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-records"></div>
+  </div>
+</section>
+<section id="admin-moderation" class="page">
+  <div class="head">
+    <h2>内容审核 Moderation <code>/moderation</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">内容审核 Moderation</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/moderation</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="78.7" height="22" width="157.38" fill="#EAF1EC"/><text x="96.7" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单（徽标硬编码 2）</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">筛选</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">全部 / 待审核 / 已通过</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">待审卡片</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">文本标红</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">通过 / 驳回</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">pass / reject + Toast</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 无驳回理由/申诉/图片预览/批量</text><text x="30" y="242" font-size="11" fill="#1F2E26">· ⚠「敏感词初筛命中 1 条」硬编码，与词库无联动</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="50.9" height="22" width="101.72" fill="#EFEDE7"/><text x="68.9" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/admin.js</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>筛选</b><span>全部 / 待审核 / 已通过</span></li><li><b>待审卡片</b><span>文本标红</span></li><li><b>通过 / 驳回</b><span>pass / reject + Toast</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单（徽标硬编码 2）</p>
+    <p class="kv"><b>数据源</b>data/admin.js</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-moderation"></div>
+  </div>
+</section>
+<section id="admin-consults" class="page">
+  <div class="head">
+    <h2>问诊记录 Consults <code>/consults</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊记录 Consults</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/consults</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">表格渲染</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">编号/用户/宠物/主题/轮</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">次/模型/时间/状态</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">模型标签</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">GLM-4V（图文）/ GLM-4</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">（纯文本）</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 无会话回放 / 转人工跟进 / 导出</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="65.6" height="22" width="131.16000000000003" fill="#EFEDE7"/><text x="83.6" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">data/admin.js 静态</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>表格渲染</b><span>编号/用户/宠物/主题/轮次/模型/时间/状态</span></li><li><b>模型标签</b><span>GLM-4V（图文）/ GLM-4（纯文本）</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单</p>
+    <p class="kv"><b>数据源</b>data/admin.js 静态</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-consults"></div>
+  </div>
+</section>
+<section id="admin-announce" class="page">
+  <div class="head">
+    <h2>公告管理 Announce <code>/announce</code>
+      <span class="badge" style="color:#3E6B57;background:#EAF1EC">已实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 322" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="322" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">公告管理 Announce</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/announce</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#EAF1EC"/>
+<circle cx="586" cy="29" r="3.4" fill="#3E6B57"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#3E6B57">已实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">表单填写</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">标题必填 / 类型 select</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">/ 正文必填</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">发布</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">unshift + 持久化 +</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">Toast「首页将同步展示」</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">行操作</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">上线/下线（active 取反</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">）/ 删除</text>
+<rect x="18" y="190" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ✅ 真实双端闭环：App 首页读同键</text><text x="30" y="242" font-size="11" fill="#1F2E26">· 🟡 编辑分支存在但列表无入口（不可达）</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="256" rx="116.9" height="22" width="233.74" fill="#EFEDE7"/><text x="134.9" y="271" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_announcements（双端共享键）</text>
+<text x="18" y="290" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="288" rx="44.9" height="22" width="89.76" fill="#F8F1DF"/><text x="62.9" y="303" text-anchor="middle" font-size="11.5" fill="#8A6A1E">App 首页展示</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>表单填写</b><span>标题必填 / 类型 select / 正文必填</span></li><li><b>发布</b><span>unshift + 持久化 + Toast「首页将同步展示」</span></li><li><b>行操作</b><span>上线/下线（active 取反）/ 删除</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单</p>
+    <p class="kv"><b>数据源</b>petwise_announcements（双端共享键）</p>
+    <p class="kv"><b>出口</b>App 首页展示</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-announce"></div>
+  </div>
+</section>
+<section id="admin-feedback" class="page">
+  <div class="head">
+    <h2>用户反馈 Feedback <code>/feedback</code>
+      <span class="badge" style="color:#3E6B57;background:#EAF1EC">已实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">用户反馈 Feedback</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/feedback</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#EAF1EC"/>
+<circle cx="586" cy="29" r="3.4" fill="#3E6B57"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#3E6B57">已实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="78.0" height="22" width="156.0" fill="#EAF1EC"/><text x="96.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单（徽章真实计数）</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">读取反馈</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">来自 App「我的→意见反</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">馈」</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">类型标签</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">bug 问题 / suggestion</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">建议 / other 其他</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">筛选</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">全部 / 待处理（真实计数</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">）/ 已处理</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">标记已处理</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">state=resolved，徽标同</text><text x="540" y="149.5" font-size="10.5" fill="#5C6B62">步减少</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⬜ 无回复用户 / 删除 / 重新打开</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="104.0" height="22" width="207.98000000000002" fill="#EFEDE7"/><text x="122.0" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_feedbacks（双端共享键）</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>读取反馈</b><span>来自 App「我的→意见反馈」</span></li><li><b>类型标签</b><span>bug 问题 / suggestion 建议 / other 其他</span></li><li><b>筛选</b><span>全部 / 待处理（真实计数）/ 已处理</span></li><li><b>标记已处理</b><span>state=resolved，徽标同步减少</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单（徽章真实计数）</p>
+    <p class="kv"><b>数据源</b>petwise_feedbacks（双端共享键）</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-feedback"></div>
+  </div>
+</section>
+<section id="admin-settings" class="page">
+  <div class="head">
+    <h2>系统设置 Settings <code>/settings</code>
+      <span class="badge" style="color:#C9973B;background:#F8F1DF">演示实现</span></h2>
+  </div>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 408" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="408" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">系统设置 Settings</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/settings</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="50.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">侧栏菜单</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">模型与服务</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">置信度阈值 0.6（</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">0.5/0.6/0.7）</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">LLM 选择</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">GLM-4V 图文 / GLM-4 文</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">本</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">合规开关</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">医疗免责 true / 新用户</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">注册 true</text><line x1="509" y1="132.0" x2="524" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 524 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="528" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="528" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="540" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">敏感词库</text><text x="540" y="136.0" font-size="10.5" fill="#5C6B62">增删词条（默认 4 词）</text><line x1="92.0" y1="170" x2="92.0" y2="180" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 92.0 180 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="18" y="182" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="182" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="204" font-size="12.5" font-weight="600" fill="#1F2E26">管理员角色</text><text x="30" y="222.0" font-size="10.5" fill="#5C6B62">静态表 ⬜ 不可编辑</text>
+<rect x="18" y="276" rx="10" width="644" height="50" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="294" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="312" font-size="11" fill="#1F2E26">· ⚠ cfg 与 words 无任何业务消费方（自读自写孤岛）</text><text x="30" y="328" font-size="11" fill="#1F2E26">· 既不影响 vision 阈值，也不参与审核</text>
+<text x="18" y="342" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="342" rx="63.7" height="22" width="127.48" fill="#EFEDE7"/><text x="81.7" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_admin_cfg</text><rect x="153.5" y="342" rx="70.2" height="22" width="140.36" fill="#EFEDE7"/><text x="223.7" y="357" text-anchor="middle" font-size="11.5" fill="#1F2E26">petwise_admin_words</text>
+<text x="18" y="376" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="374" rx="14.8" height="22" width="29.5" fill="#F8F1DF"/><text x="32.8" y="389" text-anchor="middle" font-size="11.5" fill="#8A6A1E">—</text>
+</svg></div>
+  <details class="meta"><summary>流程步骤与数据源</summary>
+    <ol><li><b>模型与服务</b><span>置信度阈值 0.6（0.5/0.6/0.7）</span></li><li><b>LLM 选择</b><span>GLM-4V 图文 / GLM-4 文本</span></li><li><b>合规开关</b><span>医疗免责 true / 新用户注册 true</span></li><li><b>敏感词库</b><span>增删词条（默认 4 词）</span></li><li><b>管理员角色</b><span>静态表 ⬜ 不可编辑</span></li></ol>
+    <p class="kv"><b>入口</b>侧栏菜单</p>
+    <p class="kv"><b>数据源</b>petwise_admin_cfg / petwise_admin_words</p>
+    <p class="kv"><b>出口</b>—</p>
+  </details>
+  <div class="note">
+    <div class="note-title">改进方向（点击填写，自动保存到服务器）<span class="save-state"></span></div>
+    <div class="note-body" contenteditable="true" data-key="design-note-admin-settings"></div>
+  </div>
+</section>
+</main>
+</div>
+<script>
+  const K = k => 'design-note-' + k;
+  const els = [...document.querySelectorAll('.note-body')];
+  let apiOK = true;
+
+  // 1) 优先从服务器拉取（notes.json 落盘，与端口/浏览器无关）
+  fetch('/api/notes').then(r => r.json()).then(data => {
+    els.forEach(el => {
+      const v = data[el.dataset.key.replace('design-note-', '')];
+      if (v) el.textContent = v;
+    });
+  }).catch(() => { apiOK = false; });
+
+  // 2) 输入即保存：POST 到服务器（debounce 400ms），localStorage 仅作离线兜底
+  const pending = new Map();
+  let timer = null;
+  els.forEach(el => {
+    const key = el.dataset.key.replace('design-note-', '');
+    const state = el.parentElement.querySelector('.save-state');
+    const local = localStorage.getItem(K(key));
+    if (local && !el.textContent) el.textContent = local;   // 服务器无此条时回填历史
+    el.addEventListener('input', () => {
+      localStorage.setItem(K(key), el.innerText);           // 离线兜底
+      pending.set(key, el.innerText);
+      if (state) state.textContent = '保存中…', state.className = 'save-state';
+      clearTimeout(timer);
+      timer = setTimeout(flush, 400);
+    });
+  });
+
+  function flush() {
+    if (!pending.size) return;
+    const body = Object.fromEntries(pending);
+    pending.clear();
+    fetch('/api/notes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    }).then(r => r.json()).then(() => {
+      document.querySelectorAll('.note-body').forEach(el => {
+        const s = el.parentElement.querySelector('.save-state');
+        if (s && el.innerText.trim()) s.textContent = '✓ 已保存', s.className = 'save-state ok';
+      });
+    }).catch(() => {
+      document.querySelectorAll('.note-body').forEach(el => {
+        const s = el.parentElement.querySelector('.save-state');
+        if (s && el.innerText.trim()) s.textContent = '⚠ 仅保存在本机', s.className = 'save-state';
+      });
+    });
+  }
+  window.addEventListener('beforeunload', flush);
+
+  function exportNotes() {
+    const out = {};
+    els.forEach(el => {
+      const t = el.innerText.trim();
+      if (t) out[el.dataset.key.replace('design-note-','')] = t;
+    });
+    const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'design-improvements.json';
+    a.click();
+  }
+</script>
+</body>
+</html>

@@ -64,8 +64,16 @@ class ErrorCode:
 
     @classmethod
     def http_status(cls, code: int) -> int:
-        """按 code 段位推导 HTTP 状态码：万位段即 HTTP 段。"""
-        return cls._HTTP_STATUS.get(code, cls._HTTP_STATUS[code // 10000 * 10000])
+        """按 code 段位推导 HTTP 状态码：万位段即 HTTP 段。
+
+        注意：dict.get(key, default) 会先求值 default，因此不能把分段回退写成
+        get(code, _HTTP_STATUS[code//10000*10000]) 的形式——那样会对每个码都触发
+        分段键的求值，遇到未知区段直接 KeyError。改为先取精确码，再以 .get 兜底。
+        """
+        direct = cls._HTTP_STATUS.get(code)
+        if direct is not None:
+            return direct
+        return cls._HTTP_STATUS.get(code // 10000 * 10000, 500)
 
 
 class AppError(Exception):

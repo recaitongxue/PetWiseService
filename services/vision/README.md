@@ -16,8 +16,8 @@ apps/mobile ─▶ services/api ──X-Internal-Token──▶ services/vision 
 
 ```bash
 cp .env.example .env
-pip install -e .
-uvicorn app.main:app --reload --port 8081
+uv sync
+uv run uvicorn app.main:app --reload --port 8081
 ```
 
 没有权重时服务仍可启动：`GET /health` 返回 `degraded` 并在 message 里说明原因，
@@ -47,7 +47,8 @@ uvicorn app.main:app --reload --port 8081
 ## 使用 GPU
 
 ```bash
-pip install -e ".[gpu]"
+uv pip uninstall onnxruntime
+uv pip install onnxruntime-gpu
 export PW_VISION_PROVIDERS=auto   # 检测到 CUDA 会自动优先
 ```
 

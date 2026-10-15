@@ -203,6 +203,9 @@ function submit() {
 </script>
 
 <style scoped>
+/* 底部操作栏停靠区：给固定 paybar（约 58px）+ 底部导航留出空间，
+   避免滚到底时最后一块内容被操作栏压住 */
+.screen { padding-bottom: 132px; }
 .r-head {
   display: flex;
   align-items: center;
@@ -406,7 +409,7 @@ function submit() {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   align-items: center;

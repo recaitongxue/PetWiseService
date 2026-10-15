@@ -2,7 +2,8 @@
 
 推理服务通过这个文件知道「有哪些模型、分别对应什么类目」。
 
-由 `cv/src/export/to_onnx.py` 生成，手写也可以，格式如下：
+由 `cv/common/export/to_onnx.py` 生成（`cv/dog` 与 `cv/cat` 各自导出时累积进同一个清单），
+手写也可以，格式如下：
 
 ```json
 {

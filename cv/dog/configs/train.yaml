@@ -1,0 +1,25 @@
+# 狗识别（THU-Dogs, 130 类）论文主实验配置
+# 强骨干 + 类别均衡 Focal 损失 + 强增强 + bbox 裁剪 + EMA + DDP + TTA
+backbone: convnext_large
+epochs: 120
+warmup_epochs: 5
+lr: 1.0e-4
+lr_head_multiplier: 10      # 分类头学习率高于骨干，加速收敛
+weight_decay: 0.05
+batch_size: 16              # 每卡；双 5090 + grad_accum=2 -> 有效 batch = 16*2*2 = 64
+grad_accum: 2
+ema: 0.999                  # 指数移动平均，验证/保存/评测均用 EMA 权重
+loss_name: cb_focal         # 类别均衡 Focal（Cui 2019 + Lin 2017），论文创新点
+focal_gamma: 2.0
+cb_beta: 0.9999
+label_smoothing: 0.1
+aug: randaug                # RandAugment 强增强
+randaug_n: 2
+randaug_m: 9
+erase: 0.25                 # RandomErasing，抑制局部纹理作弊
+balance: true               # 类平衡采样（缓解长尾）
+balance_alpha: 0.5
+amp: true                   # 混合精度
+patience: 20                # 早停：验证 Top-1 多少轮未提升则停
+tta: true                   # 测试时增强（hflip 平均）
+freeze_epochs: 2            # 前 2 轮冻结骨干，只训分类头，稳定训练

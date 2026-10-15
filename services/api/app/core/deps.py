@@ -15,9 +15,12 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from sqlalchemy.orm import Session as DBSession
+
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.security import TokenPayload, decode_token
+from app.db import get_db
 
 # auto_error=False：由我们自己抛契约错误码，而不是 FastAPI 默认的 403
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -63,3 +66,7 @@ def get_settings_dep():
 
 
 SettingsDep = Annotated[object, Depends(get_settings_dep)]
+
+
+# ── 数据 ──────────────────────────────────────────────
+DbSession = Annotated[DBSession, Depends(get_db)]

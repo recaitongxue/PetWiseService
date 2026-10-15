@@ -37,32 +37,24 @@
           autocomplete="tel"
           maxlength="11"
           placeholder="请输入手机号"
-          @input="clearError('phone')"
+          @input="form.phone = form.phone.replace(/\D/g, ''); clearError('phone')"
         />
       </label>
       <p v-if="errors.phone" class="f-error">{{ errors.phone }}</p>
 
-      <!-- 验证码 -->
+      <!-- 验证码：6 位分格输入（共享组件 CodeInput：自动前进 / 粘贴分发 / 退格回跳） -->
       <template v-if="mode === 'code'">
-        <label class="field" :class="{ bad: errors.code }">
-          <input
-            v-model.trim="form.code"
-            class="f-control"
-            type="text"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="6"
-            placeholder="6 位短信验证码"
-            @input="clearError('code')"
-          />
+        <CodeInput ref="codeInputRef" v-model="codeDigits" :error="!!errors.code" />
+        <p v-if="errors.code" class="f-error">{{ errors.code }}</p>
+        <div class="code-foot">
           <button
             class="f-action"
             type="button"
-            :disabled="counting || !phoneOk"
+            :disabled="counting || !phoneOk || sendUsed >= SMS_DAILY_MAX"
             @click="sendCode"
-          >{{ counting ? `${countdown}s 后重发` : '获取验证码' }}</button>
-        </label>
-        <p v-if="errors.code" class="f-error">{{ errors.code }}</p>
+          >{{ counting ? `${countdown}s 后重发` : sendUsed >= SMS_DAILY_MAX ? '今日发送已达上限' : '获取验证码' }}</button>
+          <span class="code-tip">验证码 5 分钟内有效 · 请勿转发他人</span>
+        </div>
       </template>
 
       <!-- 密码 -->
@@ -86,6 +78,13 @@
           </button>
         </label>
         <p v-if="errors.pwd" class="f-error">{{ errors.pwd }}</p>
+        <!-- 密码强度：引导用户设置更安全的密码 -->
+        <div v-if="form.pwd" class="pwd-meter">
+          <div class="pm-bars">
+            <span v-for="s in 3" :key="s" class="pm-bar" :class="{ on: pwdScore >= s, [pwdLevel]: pwdScore >= s }"></span>
+          </div>
+          <span class="pm-label" :class="pwdLevel">{{ pwdLevelLabel }}</span>
+        </div>
       </template>
 
       <button class="lg-submit" type="submit" :disabled="loading">
@@ -121,16 +120,18 @@
       </button>
     </div>
 
-    <p class="lg-hint">演示环境：输入任意 11 位手机号即可登录</p>
+    <p class="lg-hint">演示环境：输入任意 11 位手机号，验证码填 888888 即可登录</p>
   </section>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import BrandMark from '@/components/BrandMark.vue'
-import { login } from '@/data/ops'
+import CodeInput from '@/components/CodeInput.vue'
+import { smsSendCount, bumpSmsSend, SMS_DAILY_MAX } from '@/api/client'
+import { loginWithCode, sendSmsCode } from '@/api/data'
 import { showToast } from '@/composables/toast'
 
 const route = useRoute()
@@ -152,6 +153,24 @@ let timer = null
 const PHONE_RE = /^1[3-9]\d{9}$/
 const phoneOk = computed(() => PHONE_RE.test(form.phone))
 
+/* ---------- 验证码：6 位分格（共享组件 CodeInput） ---------- */
+
+const codeDigits = ref(['', '', '', '', '', ''])
+const codeInputRef = ref(null)
+
+// 输入即清除验证码错误（与原分格实现的行为一致）
+watch(codeDigits, () => {
+  if (errors.code) errors.code = ''
+})
+
+function clearCode() {
+  codeInputRef.value?.clear()
+}
+
+/* ---------- 验证码发送频控（ops 共享实现，账号管理页同源） ---------- */
+
+const sendUsed = ref(smsSendCount())
+
 function clearError(k) {
   errors[k] = ''
 }
@@ -160,19 +179,31 @@ function switchMode(m) {
   mode.value = m
   errors.code = ''
   errors.pwd = ''
+  clearCode()
 }
 
-function sendCode() {
+async function sendCode() {
   if (!phoneOk.value) {
     errors.phone = '请输入正确的 11 位手机号'
     return
   }
-  countdown.value = 60
-  timer = setInterval(() => {
-    countdown.value -= 1
-    if (countdown.value <= 0) clearInterval(timer)
-  }, 1000)
-  showToast('验证码已发送（演示：任意 6 位数字）', { type: 'success' })
+  if (sendUsed.value >= SMS_DAILY_MAX) {
+    showToast('今日验证码发送次数已达上限，请明天再试', { type: 'warn' })
+    return
+  }
+  try {
+    await sendSmsCode(form.phone)
+    bumpSmsSend()
+    sendUsed.value = smsSendCount()
+    countdown.value = 60
+    timer = setInterval(() => {
+      countdown.value -= 1
+      if (countdown.value <= 0) clearInterval(timer)
+    }, 1000)
+    showToast(`验证码已发送至 ${form.phone.slice(0, 3)}****${form.phone.slice(-4)}（演示验证码 888888）`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '验证码发送失败', { type: 'error' })
+  }
 }
 
 function openDoc(name) {
@@ -187,6 +218,24 @@ function goReset() {
   showToast('重置密码为演示占位', { type: 'info' })
 }
 
+/* ---------- 密码强度 ---------- */
+
+const pwdScore = computed(() => {
+  const p = form.pwd
+  if (!p) return 0
+  let s = 0
+  if (p.length >= 6) s += 1
+  if (p.length >= 10) s += 1
+  if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s += 1
+  if (/\d/.test(p)) s += 1
+  if (/[^A-Za-z0-9]/.test(p)) s += 1
+  return Math.min(3, Math.ceil(s / 2))
+})
+const pwdLevel = computed(() => (['weak', 'mid', 'strong'])[pwdScore.value - 1] || 'weak')
+const pwdLevelLabel = computed(() =>
+  ({ weak: '强度偏弱：建议字母 + 数字 + 符号', mid: '强度中等：再加几位更安全', strong: '强度很好' })[pwdLevel.value]
+)
+
 function validate() {
   let ok = true
   if (!phoneOk.value) {
@@ -194,8 +243,9 @@ function validate() {
     ok = false
   }
   if (mode.value === 'code') {
+    form.code = codeDigits.value.join('')
     if (!/^\d{6}$/.test(form.code)) {
-      errors.code = '请输入 6 位数字验证码'
+      errors.code = '请输入完整的 6 位数字验证码'
       ok = false
     }
   } else if (form.pwd.length < 6) {
@@ -205,7 +255,7 @@ function validate() {
   return ok
 }
 
-function submit() {
+async function submit() {
   agreeWarn.value = false
   if (!validate()) return
   if (!agreed.value) {
@@ -213,15 +263,21 @@ function submit() {
     showToast('请先勾选并同意用户协议', { type: 'warn' })
     return
   }
+  if (mode.value === 'password') {
+    showToast('演示环境仅支持验证码登录', { type: 'warn' })
+    return
+  }
   loading.value = true
-  // 演示：模拟一次网络请求
-  setTimeout(() => {
-    login({ phone: form.phone, mode: mode.value })
-    loading.value = false
+  try {
+    await loginWithCode(form.phone, form.code)
     showToast(`欢迎回来，${form.phone.slice(0, 3)}****${form.phone.slice(-4)}`, { type: 'success' })
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
     router.replace(redirect)
-  }, 700)
+  } catch (e) {
+    showToast(e?.message || '登录失败，请重试', { type: 'error' })
+  } finally {
+    loading.value = false
+  }
 }
 
 function wechatLogin() {
@@ -343,6 +399,39 @@ onUnmounted(() => clearInterval(timer))
   color: var(--color-alert);
   padding-left: 2px;
 }
+
+/* ---------- 验证码 6 位分格 ---------- */
+.code-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: -6px;
+}
+.code-tip { font-size: 11px; color: var(--color-faint); }
+
+/* ---------- 密码强度 ---------- */
+.pwd-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+}
+.pm-bars { display: flex; gap: 5px; flex: 1; }
+.pm-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  transition: background var(--dur-fast);
+}
+.pm-bar.on.weak { background: var(--color-alert); }
+.pm-bar.on.mid { background: var(--color-watch); }
+.pm-bar.on.strong { background: var(--color-good); }
+.pm-label { font-size: 11px; font-weight: 700; color: var(--color-faint); flex-shrink: 0; }
+.pm-label.weak { color: var(--color-alert); }
+.pm-label.mid { color: var(--color-watch); }
+.pm-label.strong { color: var(--color-good); }
 
 .lg-submit {
   height: 52px;

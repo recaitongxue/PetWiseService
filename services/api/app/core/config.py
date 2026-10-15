@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     LOG_JSON: bool = False
 
     # ── 数据库 / 缓存 ────────────────────────────────────
-    DATABASE_URL: str = "postgresql+psycopg://petwise:petwise@localhost:5432/petwise"
+    DATABASE_URL: str = "mysql+pymysql://root:123456@127.0.0.1:3306/petwise"
     DB_POOL_SIZE: int = 10
     DB_ECHO: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -62,6 +62,10 @@ class Settings(BaseSettings):
 
     # ── AI 配额 ───────────────────────────────────────────
     AI_DAILY_TRIAGE_QUOTA: int = 5
+
+    # ── 本地演示 ──────────────────────────────────────────
+    # 开启后短信验证码登录允许使用固定调试码（见 auth 路由），生产必须关闭
+    SMS_DEBUG: bool = False
 
     # ── CORS ──────────────────────────────────────────────
     CORS_ORIGINS: str = "*"

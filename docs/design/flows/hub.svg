@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 260" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="260" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">问诊中枢 ConsultHub</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/consult</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="61.0" height="22" width="121.96000000000001" fill="#EAF1EC"/><text x="79.0" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">Dock 中央凸起 FAB</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">三大入口</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">AI 智能问诊 / 结构化预</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">问诊 / 真人医生</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">问诊记录</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">带计数入口</text>
+
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="194" rx="21.9" height="22" width="43.760000000000005" fill="#EFEDE7"/><text x="39.9" y="209" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock</text><rect x="69.8" y="194" rx="46.7" height="22" width="93.44" fill="#EFEDE7"/><text x="116.5" y="209" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ 各问诊接口</text>
+<text x="18" y="228" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="226" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="62.4" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/consult/ai</text><rect x="114.8" y="226" rx="44.4" height="22" width="88.84" fill="#F8F1DF"/><text x="159.3" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/preconsult</text><rect x="211.7" y="226" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="246.4" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/doctors</text><rect x="289.2" y="226" rx="34.8" height="22" width="69.52000000000001" fill="#F8F1DF"/><text x="324.0" y="241" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/records</text>
+</svg>

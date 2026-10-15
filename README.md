@@ -29,45 +29,52 @@ apps/mobile ──▶ nginx ──▶ services/api ──┬──▶ services/v
 
 ## 快速开始
 
-### 1. 起依赖中间件
+### 1. 安装 Python 环境
+
+仓库根目录的 `pyproject.toml` 汇总服务、CV 训练和开发依赖，`uv.lock` 固定完整依赖版本。
+
+```bash
+uv sync
+```
+
+### 2. 起依赖中间件
 
 ```bash
 docker compose -f infra/compose/compose.dev.yml up -d
 ```
 
-### 2. 逐个启动服务
+### 3. 逐个启动服务
 
 ```bash
 # 业务网关（8080）
-cd services/api    && pip install -e . && uvicorn app.main:app --reload --port 8080
+uv run --project . --directory services/api uvicorn app.main:app --reload --port 8080
 
 # 视觉推理（8081）
-cd services/vision && pip install -e . && uvicorn app.main:app --reload --port 8081
+uv run --project . --directory services/vision uvicorn app.main:app --reload --port 8081
 
 # 问诊智能体（8082）
-cd services/agent  && pip install -e . && uvicorn app.main:app --reload --port 8082
+uv run --project . --directory services/agent uvicorn app.main:app --reload --port 8082
 ```
 
 三个服务都可以**在没有权重、没有数据库、没有 LLM 密钥的情况下启动**，
 只是相应地降级。这样本地联调只需要关心自己那一块。
 
-### 3. 前端
+### 4. 前端
 
 ```bash
 cd apps/mobile && npm install && npm run dev     # http://localhost:5173
 cd apps/admin  && npm install && npm run dev     # http://localhost:5174
 ```
 
-### 4. 知识库（agent 服务）
+### 5. 知识库（agent 服务）
 
 ```bash
-cd services/agent
-python -m app.knowledge.cli init-db
-python -m app.knowledge.cli ingest
-python -m app.knowledge.cli search "猫尿不出来怎么办"
+uv run --project . --directory services/agent python -m app.knowledge.cli init-db
+uv run --project . --directory services/agent python -m app.knowledge.cli ingest
+uv run --project . --directory services/agent python -m app.knowledge.cli search "猫尿不出来怎么办"
 ```
 
-### 5. 全栈部署
+### 6. 全栈部署
 
 ```bash
 docker compose -f infra/compose/compose.yml up -d
@@ -88,6 +95,9 @@ docker compose -f infra/compose/compose.yml -f infra/compose/compose.gpu.yml up 
 
 ## 文档索引
 
+- [`docs/FEATURES.md`](docs/FEATURES.md) **功能文档**：功能清单、交互流程、业务规则、实现状态
+- [`docs/DATABASE.md`](docs/DATABASE.md) **数据库设计**：表结构、ER 图、索引、品种识别→建议链路、localStorage 迁移
+- [`docs/design/index.html`](docs/design/index.html) **设计文档 · 页面流程图**：29 个页面逐一绘制（入口/流程/分支规则/数据源/出口）+ 全局导航总览；每页带「改进方向」笔记区，可导出 JSON
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 结构约定、分层纪律、毕业答辩表述
 - [`docs/API.md`](docs/API.md) 接口明细（18 组）
 - [`packages/contracts/`](packages/contracts) OpenAPI 与事件契约

@@ -84,7 +84,11 @@ const ICONS = {
   filter: '<path d="M3.5 5.5h17"/><path d="M6.5 12h11"/><path d="M10 18.5h4"/>',
   verified: '<path d="M12 3.2 14.4 5l3-.4.6 3L20.5 10l-1.5 2.6 1.5 2.6-2.5 2.4-.6 3-3-.4L12 21.8 9.6 20l-3 .4-.6-3L3.5 15l1.5-2.4L3.5 10l2.5-2.4.6-3 3 .4Z"/><path d="m9 12 2 2 4-4"/>',
   firstaid: '<rect x="3.5" y="6" width="17" height="13" rx="3"/><path d="M12 9.5v6"/><path d="M9 12.5h6"/>',
-  trendup: '<path d="M3.5 17.5 9 12l3.5 3.5L20.5 7"/><path d="M15.5 7h5v5"/>'
+  trendup: '<path d="M3.5 17.5 9 12l3.5 3.5L20.5 7"/><path d="M15.5 7h5v5"/>',
+  edit: '<path d="M4 20h4l11-11-4-4L4 16Z"/><path d="m14.5 5.5 4 4"/>',
+  /* ---- 账号管理新增 ---- */
+  shield: '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 9.5C8 19.4 5 15.6 5 11V6Z"/><path d="m9 11.5 2 2 4-4"/>',
+  ban: '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>'
 }
 
 const FILLED = new Set(['paw', 'signal', 'battery', 'sparkle'])

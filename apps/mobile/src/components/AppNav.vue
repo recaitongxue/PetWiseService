@@ -36,12 +36,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { conversations } from '@/data/mock'
+import { fetchConversations } from '@/api/data'
 
 const route = useRoute()
+
+const conversations = ref([])
+onMounted(async () => {
+  conversations.value = await fetchConversations()
+})
 
 // 3~5 个一级目的地（平台规范）；每个 tab 用 match 声明所属路由域，
 // 保证进入子页面（医生列表 / 问诊室 / 报告）时高亮不丢失
@@ -62,7 +67,7 @@ const rightItems = [
     label: '我的',
     icon: 'user',
     to: '/profile',
-    match: ['/profile', '/pet', '/schedule', '/favorites']
+    match: ['/profile', '/pet', '/schedule', '/favorites', '/account']
   }
 ]
 
@@ -93,25 +98,20 @@ function isActive(item) {
 </script>
 
 <style scoped>
-/* 悬浮毛玻璃 Dock */
+/* 底部导航：嵌入外壳布局的静态 flex 项（不再是悬浮层）。
+   内容区在它上方自然收住，任何页面都不会被遮挡；导航本身不随内容滚动。 */
 .dock {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  width: calc(100% - 32px);
-  max-width: calc(var(--shell-max) - 40px);
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 2px;
-  padding: 7px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  box-shadow:
-    0 0 0 1px var(--hairline),
-    0 10px 28px rgba(27, 42, 34, 0.14);
+  border-top: 1px solid var(--hairline);
   z-index: 30;
 }
 
@@ -171,7 +171,8 @@ function isActive(item) {
   box-shadow: 0 0 0 2px var(--color-surface);
 }
 
-/* 中央核心入口：胶囊凸起（视觉焦点 + 文字标签，不做无标签纯图标） */
+/* 中央核心入口：胶囊按钮（视觉焦点 + 文字标签，不做无标签纯图标）。
+   注意：不做向上凸起——凸起会超出 dock 布局盒，导致上方操作栏与导航之间出现遮挡/缝隙 */
 .dock-fab {
   flex: 0 0 auto;
   display: flex;
@@ -180,11 +181,10 @@ function isActive(item) {
   justify-content: center;
   gap: 1px;
   width: 60px;
-  height: 48px;
+  height: 44px;
   border-radius: 999px;
   color: #fff;
   margin: 0 4px;
-  transform: translateY(-12px);
   background: linear-gradient(150deg, var(--color-accent), var(--color-accent-ink));
   box-shadow:
     0 6px 16px rgba(214, 80, 42, 0.28),
@@ -205,5 +205,5 @@ function isActive(item) {
     0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
-.dock-fab:active { transform: translateY(-10px) scale(0.94); }
+.dock-fab:active { transform: scale(0.94); }
 </style>

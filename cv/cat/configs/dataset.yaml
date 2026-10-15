@@ -1,0 +1,12 @@
+kind: cat
+root: datasets/cat
+image_root: datasets/cat
+splits:
+  train: train
+  val: val
+  test: test
+image_size: 384
+seed: 42
+use_bbox: false             # 猫数据集无 bbox 标注
+dataloader:
+  num_workers: 8

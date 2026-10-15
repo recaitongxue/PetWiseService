@@ -6,15 +6,36 @@ vision / agent 不直接面对客户端，一律经由 app/clients/ 调用。
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.exception_handlers import register_exception_handlers
 from app.api.middleware.timing import SlowRequestMiddleware
 from app.api.middleware.trace import TraceIdMiddleware
-from app.api.routers import demo, health
+from app.api.routers import (
+    announcements,
+    auth,
+    breeds,
+    community,
+    contacts,
+    consult,
+    conversations,
+    demo,
+    doctors,
+    favorites,
+    feedback,
+    files,
+    health,
+    home,
+    pets,
+    recognitions,
+    schedule,
+    users,
+)
 from app.clients.agent import AgentClient
 from app.clients.vision import VisionClient
 from app.core.config import settings
@@ -73,6 +94,29 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(demo.router, prefix=API_PREFIX)
+    app.include_router(auth.router, prefix=API_PREFIX)
+    app.include_router(users.router, prefix=API_PREFIX)
+    app.include_router(pets.router, prefix=API_PREFIX)
+    app.include_router(schedule.router, prefix=API_PREFIX)
+    app.include_router(announcements.router, prefix=API_PREFIX)
+    app.include_router(feedback.router, prefix=API_PREFIX)
+    app.include_router(breeds.router, prefix=API_PREFIX)
+    app.include_router(consult.router, prefix=API_PREFIX)
+    app.include_router(doctors.router, prefix=API_PREFIX)
+    app.include_router(community.router, prefix=API_PREFIX)
+    app.include_router(contacts.router, prefix=API_PREFIX)
+    app.include_router(conversations.router, prefix=API_PREFIX)
+    app.include_router(favorites.router, prefix=API_PREFIX)
+    app.include_router(files.router, prefix=API_PREFIX)
+    app.include_router(home.router, prefix=API_PREFIX)
+    app.include_router(recognitions.router, prefix=API_PREFIX)
+
+    # 本地演示：上传文件静态服务（production 应替换为对象存储 + CDN）
+    _upload_dir = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+    )
+    os.makedirs(_upload_dir, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
 
     return app
 

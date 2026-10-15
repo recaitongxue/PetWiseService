@@ -9,7 +9,12 @@
         <span class="post-name">{{ post.author }}</span>
         <span class="post-time">{{ post.time }}</span>
       </div>
-      <button class="post-follow" type="button">关注</button>
+      <button class="post-follow" :class="{ on: following }" type="button" @click="following = !following">
+        {{ following ? '已关注' : '关注' }}
+      </button>
+      <button class="post-more" type="button" aria-label="更多操作" @click="$emit('more', post)">
+        <AppIcon name="filter" :size="16" />
+      </button>
     </header>
 
     <p class="post-text">{{ post.text }}</p>
@@ -22,6 +27,10 @@
         :class="'tone-' + tone"
       >
         <AppIcon name="paw" :size="post.images.length === 1 ? 64 : 36" class="img-mark" />
+        <!-- 视频标识：首图左上角时长胶囊 -->
+        <span v-if="post.videos && i === 0" class="vid-badge num">
+          <AppIcon name="video" :size="11" /> {{ post.videoDuration || '00:12' }}
+        </span>
       </div>
     </div>
 
@@ -46,7 +55,7 @@
         <AppIcon name="comment" :size="18" />
         <span class="num">{{ post.comments }}</span>
       </button>
-      <button class="act" type="button" aria-label="分享">
+      <button class="act" type="button" aria-label="分享" @click="$emit('share', post)">
         <AppIcon name="share" :size="18" />
       </button>
     </footer>
@@ -61,10 +70,11 @@ import PetAvatar from '@/components/PetAvatar.vue'
 const props = defineProps({
   post: { type: Object, required: true }
 })
-defineEmits(['comment'])
+defineEmits(['comment', 'more', 'share'])
 
 const localLiked = ref(props.post.liked)
 const localLikes = ref(props.post.likes)
+const following = ref(false)
 function toggleLike() {
   localLiked.value = !localLiked.value
   localLikes.value += localLiked.value ? 1 : -1
@@ -122,11 +132,26 @@ const initial = computed(() => (props.post.author || '?').slice(0, 1))
   border-radius: var(--radius-pill);
   padding: 5px 14px;
   transition: background var(--dur-fast), color var(--dur-fast);
+  flex-shrink: 0;
 }
 .post-follow:active {
   background: var(--color-accent);
   color: #fff;
 }
+.post-follow.on {
+  color: var(--color-muted);
+  border-color: var(--hairline);
+}
+.post-more {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-faint);
+  flex-shrink: 0;
+}
+.post-more:active { background: var(--color-surface-2); color: var(--color-ink); }
 .post-text {
   margin: 12px 0;
   font-size: 15px;
@@ -173,6 +198,22 @@ const initial = computed(() => (props.post.author || '?').slice(0, 1))
   color: rgba(255, 255, 255, 0.32);
   position: relative;
   z-index: 1;
+}
+.vid-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(27, 42, 34, 0.55);
+  backdrop-filter: blur(4px);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
 }
 .post-tags {
   display: flex;

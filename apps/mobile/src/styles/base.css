@@ -122,7 +122,10 @@ ul {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding-bottom: 128px; /* 悬浮 Dock 留白 */
+  /* Dock 已嵌入外壳布局（静态 flex 项）：内容区在其上方自然收住。
+     这里不再预留悬浮导航的避让空间，底部呼吸由各页面 .screen 的 padding-bottom 负责；
+     全屏聊天页（.room { height:100% }）的输入栏也因此能与导航严丝合缝地贴齐。 */
+  padding-bottom: 0;
   scrollbar-width: thin;
 }
 .app-main::-webkit-scrollbar {

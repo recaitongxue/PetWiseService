@@ -1,7 +1,7 @@
 # 契约的代码生成配置
 
 生成器：datamodel-code-generator
-安装： pip install datamodel-code-generator
+依赖已包含在仓库根环境中；在仓库根目录先运行 `uv sync`。
 
 ## Python（services/api 的 pydantic schema）
 

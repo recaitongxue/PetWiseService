@@ -3,10 +3,11 @@
     <!-- 顶部问候 -->
     <header class="head" v-reveal>
       <div>
-        <p class="eyebrow num">{{ today }}</p>
+        <p class="eyebrow num">{{ todayText }}</p>
         <h1 class="greet">
-          {{ greeting }}，<span class="greet-name">{{ user.name }}</span>
+          {{ greeting.text }}，<span class="greet-name">{{ user.name }}</span>
         </h1>
+        <p class="greet-sub">{{ greeting.sub }}</p>
       </div>
       <button class="bell" type="button" aria-label="通知" @click="showToast('暂无新通知')">
         <AppIcon name="bell" :size="20" />
@@ -84,7 +85,7 @@
       <AppIcon name="back" :size="13" class="tl-arrow" />
     </button>
 
-    <!-- 今日提醒 -->
+    <!-- 今日提醒：聚合全部宠物日程的大卡，可按宠物筛选 -->
     <section class="sec" v-reveal="{ delay: 120 }">
       <div class="sec-head">
         <span class="sec-idx num">01</span>
@@ -93,36 +94,88 @@
           全部日程 <AppIcon name="back" :size="12" />
         </router-link>
       </div>
-      <div class="reminders">
-        <div v-for="r in reminders" :key="r.label" class="reminder" :class="r.state">
-          <span class="rem-ic"><AppIcon :name="r.icon" :size="17" /></span>
-          <div class="rem-body">
-            <span class="rem-label">{{ r.label }}</span>
-            <span class="rem-date num">{{ r.date }}</span>
+      <div class="today-card">
+        <!-- 统计条：随筛选范围联动 -->
+        <div class="log-strip">
+          <div class="log-cell">
+            <b class="num" :class="{ warn: logStats.overdue }">{{ logStats.overdue }}</b>
+            <span>已逾期</span>
           </div>
-          <button class="rem-done" type="button" @click="markDone(r)">知道了</button>
+          <span class="log-sep"></span>
+          <div class="log-cell">
+            <b class="num">{{ logStats.today }}</b>
+            <span>今天待办</span>
+          </div>
+          <span class="log-sep"></span>
+          <div class="log-cell">
+            <b class="num">{{ logStats.done }}</b>
+            <span>已完成</span>
+          </div>
+        </div>
+
+        <!-- 宠物筛选：默认全部宠物 -->
+        <div class="pet-filter">
+          <button class="pf-chip" :class="{ on: petFilter === 'all' }" type="button" @click="petFilter = 'all'">
+            <span class="pf-ava all"><AppIcon name="paw" :size="14" /></span>
+            全部
+            <span v-if="pendingAll" class="pf-num num">{{ pendingAll }}</span>
+          </button>
+          <button
+            v-for="p in pets"
+            :key="p.id"
+            class="pf-chip"
+            :class="{ on: petFilter === p.id }"
+            type="button"
+            @click="petFilter = p.id"
+          >
+            <PetAvatar :species="p.species" :name="p.name" :size="22" :ring="false" />
+            {{ p.name }}
+            <span v-if="pendingOf(p.id)" class="pf-num num">{{ pendingOf(p.id) }}</span>
+          </button>
+        </div>
+
+        <!-- 提醒列表：全部视图下带宠物名标签 -->
+        <div class="reminders">
+          <div v-for="r in todayLogs" :key="r.id" class="reminder" :class="r.overdue ? 'watch' : ''">
+            <span class="rem-ic" :class="r.tone"><AppIcon :name="r.icon" :size="17" /></span>
+            <div class="rem-body">
+              <span class="rem-label">
+                <span v-if="petFilter === 'all'" class="rem-pet">
+                  <PetAvatar :species="r.species" :name="r.petName" :size="18" :ring="false" />{{ r.petName }}
+                </span>
+                {{ r.title }}
+              </span>
+              <span class="rem-date num">{{ r.dateText }}{{ r.time ? ' · ' + r.time : '' }}{{ r.cycle ? ' · ' + r.cycle : '' }}</span>
+            </div>
+            <button class="rem-done" type="button" @click="markDone(r)">完成了</button>
+          </div>
+          <p v-if="!todayLogs.length" class="log-empty">
+            {{ filterName }}今天都没有待办日程。去<router-link to="/schedule" class="lnk">日程页</router-link>用 AI 一键生成养护计划吧。
+          </p>
+          <router-link v-else-if="remaining" to="/schedule" class="rem-more">
+            还有 {{ remaining }} 条待办，查看全部日程
+            <AppIcon name="back" :size="12" />
+          </router-link>
         </div>
       </div>
     </section>
 
-    <!-- 快捷服务：2×2 Bento -->
+    <!-- 快捷入口：弱化为单行工具条（磁铁让位于日志提醒） -->
     <section class="sec" v-reveal="{ delay: 160 }">
       <div class="sec-head">
         <span class="sec-idx num">02</span>
-        <h3 class="sec-t">快捷服务</h3>
-        <span class="sec-hint">智能驱动</span>
+        <h3 class="sec-t">常用工具</h3>
       </div>
-      <div class="q-grid">
+      <div class="tool-strip">
         <router-link
           v-for="a in quickActions"
           :key="a.id"
           :to="a.to"
-          class="q-tile"
+          class="tool"
           :class="{ accent: a.accent }"
         >
-          <span class="q-ic"><AppIcon :name="a.icon" :size="22" /></span>
-          <span class="q-label">{{ a.label }}</span>
-          <span class="q-sub">{{ a.sub }}</span>
+          <span class="tool-ic"><AppIcon :name="a.icon" :size="20" /></span>
+          <span class="tool-label">{{ a.label }}</span>
         </router-link>
       </div>
     </section>
@@ -162,26 +215,122 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import HealthRing from '@/components/HealthRing.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { user, pets, petTrends, petReminders, quickActions, tips } from '@/data/mock'
-import { activeAnnouncements, dismissAnnouncement } from '@/data/ops'
+import { quickActions, tips } from '@/data/mock'
+import {
+  fetchUser, fetchPets, fetchPetTrend, fetchPetSchedule, fetchScheduleTypes,
+  fetchAnnouncements, dismissAnnouncement, toggleScheduleDone
+} from '@/api/data'
 import { showToast } from '@/composables/toast'
 
+const user = ref({ name: '' })
+const pets = ref([])
 const current = ref(0)
 const annOpen = ref(false)
-const announcements = ref(activeAnnouncements())
-const pet = computed(() => pets[current.value])
-const trend = computed(() => petTrends[pet.value.id] || petTrends.mochi)
-const reminders = computed(() => petReminders[pet.value.id] || [])
+const announcements = ref([])
+const schedMap = ref({})
+const typeMeta = ref({})
+
+const pet = computed(() =>
+  pets.value[current.value] || {
+    id: null, name: '', species: '', breed: '', age: '', gender: '',
+    tagline: '', healthScore: 0, nextVaccine: ''
+  }
+)
+const trend = ref([])
 const avgScore = computed(() =>
-  Math.round(trend.value.reduce((s, d) => s + d.value, 0) / trend.value.length)
+  trend.value.length ? Math.round(trend.value.reduce((s, d) => s + d.value, 0) / trend.value.length) : 0
 )
 
-function markDone(r) {
-  showToast(`已记下「${r.label}」`, { type: 'success' })
+/* ---------- 今日提醒：聚合全部宠物日程，可按宠物筛选 ---------- */
+
+const petFilter = ref('all')
+const today = new Date()
+
+// 全部宠物的日程（来自后端），统一计算图标/色调/剩余天数
+const allPetLogs = computed(() => {
+  const list = []
+  pets.value.forEach((p) => {
+    ;(schedMap.value[p.id] || []).forEach((s) => {
+      const meta = typeMeta.value[s.type] || typeMeta.value.other || {}
+      const diff = Math.round((new Date(s.date) - today) / 86400000)
+      list.push({
+        ...s,
+        petId: p.id,
+        petName: p.name,
+        species: p.species,
+        icon: meta.icon,
+        tone: meta.tone,
+        diff
+      })
+    })
+  })
+  return list
+})
+
+const scopedLogs = computed(() =>
+  petFilter.value === 'all'
+    ? allPetLogs.value
+    : allPetLogs.value.filter((s) => s.petId === petFilter.value)
+)
+
+// 未完成且已到期（含逾期）的待办，按日期升序
+const pendingSorted = computed(() =>
+  scopedLogs.value
+    .filter((s) => !s.done && s.diff <= 0)
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+)
+
+const todayLogs = computed(() =>
+  pendingSorted.value.slice(0, 4).map((s) => ({
+    ...s,
+    overdue: s.diff < 0,
+    dateText:
+      s.diff === 0 ? '今天' :
+      s.diff === -1 ? '昨天' :
+      s.diff < -1 ? `${Math.abs(s.diff)} 天前` : '即将到期'
+  }))
+)
+
+const remaining = computed(() => Math.max(0, pendingSorted.value.length - todayLogs.value.length))
+
+const pendingAll = computed(
+  () => allPetLogs.value.filter((s) => !s.done && s.diff <= 0).length
+)
+const pendingOf = (petId) =>
+  allPetLogs.value.filter((s) => s.petId === petId && !s.done && s.diff <= 0).length
+
+const filterName = computed(() =>
+  petFilter.value === 'all' ? '所有宠物' : pets.value.find((p) => p.id === petFilter.value)?.name || '这只宠物'
+)
+
+const logStats = computed(() => {
+  const all = scopedLogs.value
+  return {
+    overdue: all.filter((s) => !s.done && s.diff < 0).length,
+    today: all.filter((s) => !s.done && s.diff === 0).length,
+    done: all.filter((s) => s.done).length
+  }
+})
+
+async function markDone(r) {
+  try {
+    await toggleScheduleDone(r.id, !r.done)
+    for (const pid in schedMap.value) {
+      const it = schedMap.value[pid].find((x) => x.id === r.id)
+      if (it) {
+        it.done = !r.done
+        break
+      }
+    }
+    schedMap.value = { ...schedMap.value }
+    showToast(`已完成「${r.title}」`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'error' })
+  }
 }
 
 function levelLabel(l) {
@@ -202,19 +351,75 @@ function nextTip() {
   tipIndex.value = (tipIndex.value + 1) % tips.length
 }
 
-const today = computed(() => {
+/* ---------- 多样化问候：时段 × 星期 × 宠物状态 ---------- */
+
+const GREETINGS = {
+  dawn: ['夜深了', '早点休息'],
+  morning: ['早安', '早上好'],
+  noon: ['午安', '中午好'],
+  afternoon: ['下午好', '午后好'],
+  evening: ['晚上好', '晚安']
+}
+const WEEK_EXTRA = { 1: '新的一周，从照顾好它开始', 5: '周五了，周末带它出去走走' }
+const HOUR_EXTRA = {
+  dawn: '它都睡了，你也早点休息',
+  morning: '别忘了给它准备早餐',
+  noon: '午间陪它玩十分钟吧',
+  afternoon: '下午好，看看它今天状态如何',
+  evening: '今晚的散步安排上了吗'
+}
+
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  const wk = new Date().getDay()
+  const slot =
+    h < 6 ? 'dawn' :
+    h < 11 ? 'morning' :
+    h < 14 ? 'noon' :
+    h < 18 ? 'afternoon' : 'evening'
+  const options = GREETINGS[slot]
+  const text = options[Math.floor(Math.random() * options.length)]
+  const sub = WEEK_EXTRA[wk] || HOUR_EXTRA[slot]
+  return { text, sub }
+})
+
+const todayText = computed(() => {
   const d = new Date()
   const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
   return `${wk} · ${d.getMonth() + 1}.${String(d.getDate()).padStart(2, '0')}`
 })
 
-const greeting = computed(() => {
-  const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 11) return '早安'
-  if (h < 14) return '午安'
-  if (h < 18) return '下午好'
-  return '晚安'
+async function loadTrend(petId) {
+  if (!petId) return
+  try {
+    trend.value = await fetchPetTrend(petId)
+  } catch {
+    trend.value = []
+  }
+}
+
+watch(current, (i) => {
+  if (pets.value[i]) loadTrend(pets.value[i].id)
+})
+
+onMounted(async () => {
+  try {
+    const [u, ps, sm, tm, anns] = await Promise.all([
+      fetchUser(),
+      fetchPets(),
+      fetchPetSchedule(),
+      fetchScheduleTypes(),
+      fetchAnnouncements(true)
+    ])
+    user.value = u || { name: '' }
+    pets.value = ps || []
+    schedMap.value = sm || {}
+    typeMeta.value = tm || {}
+    announcements.value = anns || []
+    if (pets.value.length) await loadTrend(pets.value[current.value].id)
+  } catch (e) {
+    showToast(e?.message || '首页加载失败', { type: 'error' })
+  }
 })
 
 function barState(label) {
@@ -241,6 +446,11 @@ function barState(label) {
   margin-top: 6px;
 }
 .greet-name { color: var(--color-accent-ink); }
+.greet-sub {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
 .bell {
   position: relative;
   width: 44px;
@@ -505,7 +715,145 @@ function barState(label) {
 .sec-link:active { color: var(--color-accent-ink); }
 .sec-link svg { transform: rotate(180deg); }
 
-/* ---------- 今日提醒 ---------- */
+/* ---------- 今日提醒大卡：统计 + 筛选 + 列表一体 ---------- */
+.today-card {
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.today-card .log-strip {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.today-card .log-cell b { font-size: 26px; }
+
+/* 宠物筛选 chips：默认「全部」，横向可滑 */
+.pet-filter {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--hairline);
+}
+.pet-filter::-webkit-scrollbar { display: none; }
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 5px 13px 5px 6px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-muted);
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.pf-chip.on {
+  color: var(--color-ink);
+  background: var(--color-surface-2);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+.pf-chip:active { transform: scale(0.95); }
+.pf-ava.all {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--grad-ink);
+  color: var(--color-surface);
+}
+.pf-num {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+/* 卡内列表：扁平行 + 发丝分隔，取代独立浮卡 */
+.today-card .reminders { padding: 4px 14px 12px; gap: 0; }
+.today-card .reminder {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  padding: 12px 0;
+}
+.today-card .reminder + .reminder { border-top: 1px solid var(--hairline); }
+.today-card .reminder.watch { background: var(--color-accent-soft); }
+.today-card .reminder.watch .rem-label { color: var(--color-accent-ink); }
+.today-card .log-empty { margin: 12px 0; }
+
+/* 「全部」视图下的宠物名标签 */
+.rem-pet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  background: var(--color-accent-soft);
+  padding: 2px 8px 2px 3px;
+  border-radius: var(--radius-pill);
+  margin-right: 6px;
+  vertical-align: -1px;
+  flex-shrink: 0;
+}
+.rem-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 13px 0 2px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+.rem-more svg { transform: rotate(180deg); }
+
+/* ---------- 今日日志与提醒 ---------- */
+.log-strip {
+  display: flex;
+  align-items: center;
+  padding: 13px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 10px;
+}
+.log-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.log-cell b {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.log-cell b.warn { color: var(--color-accent-ink); }
+.log-cell span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--color-faint); }
+.log-sep { width: 1px; height: 26px; background: var(--hairline); }
+.log-empty {
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.7;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px dashed var(--hairline-strong);
+}
+.log-empty .lnk { color: var(--color-accent-ink); font-weight: 700; }
+
 .reminders { display: flex; flex-direction: column; gap: 10px; }
 .reminder {
   display: flex;
@@ -527,55 +875,55 @@ function barState(label) {
   color: var(--color-good);
   flex-shrink: 0;
 }
-.reminder.watch .rem-ic { background: var(--color-accent-soft); color: var(--color-accent-ink); }
-.rem-body { flex: 1; display: flex; flex-direction: column; }
+.rem-ic.coral { background: var(--color-accent-soft); color: var(--color-accent-ink); }
+.rem-ic.sand { background: var(--color-surface-2); color: var(--color-muted); }
+.rem-ic.peach { background: var(--color-sage-soft); color: var(--color-watch); }
+.rem-ic.ink { background: var(--color-surface-2); color: var(--color-ink-2); }
+.reminder.watch { border-color: rgba(200, 67, 31, 0.22); }
+.rem-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rem-label { font-weight: 700; font-size: 15px; }
-.rem-date { font-size: 12px; color: var(--color-muted); }
+.rem-date { font-size: 12px; color: var(--color-muted); margin-top: 2px; }
 .rem-done {
   font-size: 13px;
   font-weight: 700;
   color: var(--color-accent-ink);
   padding: 8px 4px 8px 12px;
+  flex-shrink: 0;
 }
 
-/* ---------- 快捷服务 Bento ---------- */
-.q-grid {
+/* ---------- 快捷工具条：弱化为单行小入口 ---------- */
+.tool-strip {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
-.q-tile {
+.tool {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 16px;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 4px 12px;
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
   border: 1px solid var(--hairline);
   transition: transform var(--dur-fast) var(--ease-out);
-  min-height: 96px;
 }
-.q-tile:active { transform: scale(0.978); }
-.q-ic {
-  width: 40px;
-  height: 40px;
+.tool:active { transform: scale(0.95); }
+.tool-ic {
+  width: 42px;
+  height: 42px;
   border-radius: 14px;
   display: grid;
   place-items: center;
   background: var(--color-sage-soft);
   color: var(--color-ink);
-  margin-bottom: 8px;
 }
-.q-label { font-weight: 700; font-size: 15px; }
-.q-sub { font-size: 11px; color: var(--color-faint); }
-.q-tile.accent {
+.tool.accent .tool-ic {
   background: var(--grad-coral);
   color: #fff;
-  box-shadow: 0 10px 22px rgba(214, 80, 42, 0.26);
+  box-shadow: 0 6px 14px rgba(214, 80, 42, 0.24);
 }
-.q-tile.accent .q-ic { background: rgba(255, 255, 255, 0.2); color: #fff; }
-.q-tile.accent .q-sub { color: rgba(255, 255, 255, 0.8); }
+.tool-label { font-size: 12px; font-weight: 700; }
 
 /* ---------- 本周趋势 ---------- */
 .trend {

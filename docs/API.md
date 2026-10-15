@@ -1,6 +1,6 @@
 # Petwise 服务端接口文档
 
-> **版本** v1.0 · **基础路径** `/api/v1` · **最后更新** 2026-10-11
+> **版本** v1.1 · **基础路径** `/api/v1` · **最后更新** 2026-10-14
 >
 > 本文档依据 `apps/mobile/src/data/mock.js`（静态数据）与 `apps/mobile/src/data/ops.js`（本地持久化层）的实际数据契约编写，
 > 凡本文档定义的字段名，前端均已有对应消费代码，**按此实现即可无缝替换 Mucf 为真实接口**。
@@ -27,11 +27,12 @@
   - [4.11 问诊：医生](#411-问诊医生)
   - [4.12 问诊：问诊单与实时消息](#412-问诊问诊单与实时消息)
   - [4.13 问诊：评价与报告](#413-问诊评价与报告)
-  - [4.14 社区](#414-社区)
-  - [4.15 即时消息 IM](#415-即时消息-im)
-  - [4.16 收藏](#416-收藏)
-  - [4.17 文件上传](#417-文件上传)
-  - [4.18 管理端](#418-管理端)
+- [4.14 社区](#414-社区)
+- [4.15 即时消息 IM](#415-即时消息-im)
+- [4.16 收藏](#416-收藏)
+- [4.17 文件上传](#417-文件上传)
+- [4.18 管理端](#418-管理端)
+- [4.19 钱包](#419-钱包)
 - [5. WebSocket 实时协议](#5-websocket-实时协议)
 - [6. 附录](#6-附录)
 
@@ -402,7 +403,7 @@ breed (字典表)
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `phone` | string | 是 | 11 位手机号 |
+| `phone` | string | 是 | 11 位手机号，正则 `^1[3-9]\d{9}$` |
 | `scene` | string | 否 | `login` / `register` / `reset`，默认 `login` |
 
 ```json
@@ -423,6 +424,17 @@ breed (字典表)
 }
 ```
 
+**频控与安全（服务端强制）**
+
+| 规则 | 值 | 超限响应 |
+| --- | --- | --- |
+| 单手机号发送间隔 | 60s（`cooldown`） | `code=42901` |
+| 单手机号每日发送上限 | 5 条/自然日 | `code=42902` |
+| 单 IP 每小时发送上限 | 20 条 | `code=42903` |
+| 验证码有效期 | 5 分钟 | 过期 `code=41001` |
+| 验证码错误尝试 | 5 次后作废 | `code=41002` |
+
+> 前端演示实现同步上述策略：60s 冷却 + 每日 5 次上限（`petwise_sms_sent` 按日计数），超限禁用按钮并提示。
 > 生产环境**禁止**在响应中返回验证码本身。本地/联调阶段可通过服务端配置开关返回 `debugCode` 字段。
 
 #### 4.1.2 验证码登录 `○`
@@ -490,6 +502,63 @@ breed (字典表)
 `PATCH /users/me`
 
 支持字段：`name`、`handle`、`avatarUrl`、`bio`。返回更新后的 `user`。
+
+#### 4.1.7 修改密码 `●`
+
+`PUT /users/me/password`
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `oldPassword` | string | 是 | 原密码，≥6 位 |
+| `newPassword` | string | 是 | 新密码，≥6 位，不得与原密码相同 |
+
+成功返回 `204` 并使该用户**其它端的 refreshToken 全部失效**（强制重新登录）。
+前端校验与后端一致：原密码错误 `code=41003`、新旧相同 `code=42203`。
+
+#### 4.1.8 更换手机号 `●`
+
+`POST /users/me/phone`，请求 `{ "newPhone": "13987654321", "smsCode": "654321" }`。
+
+> `smsCode` 走 §4.1.1 发送（`scene=change-phone`）。成功返回新 token 对，旧手机号立即失效。
+
+#### 4.1.9 账号偏好与隐私设置 `●`
+
+`GET /users/me/preferences` / `PATCH /users/me/preferences`
+
+```json
+{
+  "personalized": true,
+  "visibility": "public",
+  "binds": { "wechat": true, "apple": false }
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `personalized` | 个性化推荐开关（《互联网信息服务算法推荐管理规定》要求提供关闭项） |
+| `visibility` | 社区动态可见范围：`public` / `followers` / `private` |
+| `binds` | 第三方绑定状态；解绑/绑定走 `POST /users/me/bindings/{provider}` |
+
+#### 4.1.10 黑名单 `●`
+
+`GET /users/me/blocked` / `DELETE /users/me/blocked/{userId}`
+
+黑名单用户不可关注、评论、私信本账号。
+
+#### 4.1.11 注销账号 `●`
+
+注销流程与主流平台对齐（条件检查 → 风险确认 → 短信验证 → 冷静期）：
+
+1. **条件检查** `GET /users/me/delete-checks` →
+   `{ "checks": [{ "label": "钱包余额已清零", "ok": false, "hint": "当前余额 ¥68.50" }], "ready": false }`
+   后端校验：余额为零、无进行中问诊单、无未结算资产、账号无安全风险
+2. **提交申请** `POST /users/me/deletion`，body `{ "reason": "privacy", "smsCode": "..." }` →
+   `{ "cooldownEndsAt": "2026-10-21T00:00:00+08:00" }`；提交后强制下线
+3. **冷静期**：默认 7 天（微信 60 天 / 淘宝 15 天量级，按合规与产品取值）；期间**任何登录自动撤销申请**
+4. **撤销** `DELETE /users/me/deletion` → 账号立即恢复
+5. 冷静期结束：数据匿名化后物理删除（宠物档案/问诊记录/社区内容/钱包流水），仅保留法律要求的留存项
+
+> 前端演示环境：`Account.vue` 完整实现四步流程，「退出并清除本机数据」清除全部 `petwise_*` 本地键。
 
 ---
 
@@ -750,10 +819,50 @@ breed (字典表)
     "check": { "label": "体检", "icon": "stethoscope", "tone": "sand" },
     "weight": { "label": "称重", "icon": "scale", "tone": "peach" },
     "groom": { "label": "洗护", "icon": "sparkle", "tone": "sage" },
+    "feed": { "label": "喂食", "icon": "bowl", "tone": "peach" },
+    "memo": { "label": "备忘", "icon": "note", "tone": "ink" },
     "other": { "label": "自定义", "icon": "calendar", "tone": "ink" }
   }
 }
 ```
+
+#### 4.4.7 备忘录 `●`
+
+日程页内的随手记区，与日程条目**互相独立**（无日期、不参与到期计算），按置顶优先 + 创建时间倒序展示。
+
+`GET /memo?petId=` → `{ "data": [{ "id": "mm1", "petId": "mochi", "text": "换粮要七天过渡", "pinned": true, "time": "2026-10-14 09:12" }] }`
+
+`POST /memo`：`{ "petId": "mochi", "text": "周五带去打加强针" }`，text ≤200 字，服务端生成 `id`/`time`。
+
+`PATCH /memo/{id}`：`{ "pinned": true }` 置顶/取消置顶（幂等）。
+
+`DELETE /memo/{id}` → `204`。
+
+#### 4.4.8 AI 一键生成日程计划 `●`
+
+`POST /schedule/ai-plan`
+
+按宠物档案（物种、年龄、疫苗/驱虫周期、下次到期日）生成一份**推荐计划**，前端展示为可勾选列表，用户确认后才真正写入（防止 AI 直接改用户数据）。
+
+**请求体**：`{ "petId": "mochi" }`
+
+**响应**
+
+```json
+{
+  "data": {
+    "planId": "sp_1001",
+    "summary": "为「麻薯」生成 8 条计划：体外驱虫 7 天、体内驱虫 14 天、年度疫苗…",
+    "items": [
+      { "title": "体外驱虫", "type": "deworm", "date": "2026-10-21", "cycle": "每月一次", "note": "按福来恩/大宠爱交替使用" },
+      { "title": "年度疫苗", "type": "vaccine", "date": "2026-11-02", "cycle": "每年一次", "note": "猫三联加强针" }
+    ]
+  }
+}
+```
+
+**批量写入**：用户勾选确认后调 `POST /schedule/batch`，body 为 `{ "items": [ …同 items 结构，可带 petId ] }`。
+服务端按 `title + petId` 去重：已存在的同名条目跳过并在响应 `skipped[]` 中返回，保证重复点击「一键添加」不会产生重复日程。
 
 ---
 
@@ -773,6 +882,29 @@ breed (字典表)
     "currentPetId": "mochi",
     "greeting": "下午好",
     "trend": [ { "day": "一", "value": 92, "label": "优" } ],
+    "todayBoard": {
+      "stats": { "overdue": 1, "today": 2, "done": 0 },
+      "petFilter": "all",
+      "pets": [ { "id": "mochi", "name": "麻薯", "pending": 3 }, { "id": "doudou", "name": "豆豆", "pending": 1 } ],
+      "reminders": [
+        {
+          "id": "d5",
+          "petId": "doudou",
+          "petName": "豆豆",
+          "species": "dog",
+          "icon": "pill",
+          "tone": "sage",
+          "title": "体内外驱虫",
+          "date": "2026-08-03",
+          "diff": -72,
+          "overdue": true,
+          "dateText": "72 天前",
+          "cycle": "每季度一次",
+          "done": false
+        }
+      ],
+      "remaining": 0
+    },
     "reminders": [ { "icon": "calendar-check", "label": "年度疫苗", "date": "11-02", "state": "watch" } ],
     "announcements": [
       { "id": "a1", "title": "品种百科上线", "body": "...", "level": "event", "date": "2026-10-10" }
@@ -790,6 +922,12 @@ breed (字典表)
 ```
 
 > `greeting` 由服务端按时区与 lingua 习惯生成（如「早上好」「下午好」），前端不再自行计算。
+
+> `todayBoard` 是首页「今日提醒」大卡的数据源：聚合**当前用户名下全部宠物**的待办日程
+> （`diff<=0` 且未完成，按日期升序，最多 4 条，超出进 `remaining`），`petFilter` 记录当前筛选
+> （`all` 或宠物 id），`pets[].pending` 为各宠物待办数（筛选 chips 角标）。
+> 旧字段 `reminders`（单宠物提醒）保留兼容，新客户端应改用 `todayBoard`。
+> 完成动作走 `PATCH /schedule/{id}/done`（见 §4.4）。
 
 ---
 
@@ -835,8 +973,9 @@ breed (字典表)
 
 ### 4.7 拍照识别
 
-> 识别能力对应项目中的 `model/`（CV 模型）与 `app` 的 `/recognize` 页面。
-> 若模型推理耗时较长，建议改为**异步模式**（见下方 4.7.3）。
+> 识别能力对应项目中的 `cv/`（猫狗两个品种分类模型 + 物种路由）与 `services/vision` 在线推理。
+> **模型只输出品种分类结果（top-k logits），不包含体态 / 健康分析**——页面上的品种档案、喂食建议均来自品种库查表（4.8），AI 建议来自问诊链路（4.10）。
+> 若模型推理耗时较长，建议改为**异步模式**（见下方 4.7.4）。
 
 #### 4.7.1 同步识别 `●`
 
@@ -846,36 +985,84 @@ breed (字典表)
 | --- | --- | --- | --- |
 | `image` | file | 是 | 图片，≤10MB，jpg/png/webp |
 | `petId` | string | 否 | 关联宠物，写入识别历史 |
+| `species` | string | 否 | `auto`（默认，路由到狗/猫模型取最高置信）/ `dog` / `cat` |
 
 **响应**
 
 ```json
 {
   "data": {
-    "id": "r1",
+    "id": "rc1770000000000",
     "title": "英国短毛猫",
     "sci": "Felis catus",
     "confidence": 0.96,
     "species": "cat",
     "breedId": "b-bsh",
-    "metrics": [
-      { "label": "品种匹配", "value": "96%", "state": "good" },
-      { "label": "体态评估", "value": "标准", "state": "good" },
-      { "label": "被毛状态", "value": "光亮", "state": "good" },
-      { "label": "眼鼻检查", "value": "正常", "state": "good" }
+    "risk": "confirmed",
+    "alternatives": [
+      { "title": "英国短毛猫", "confidence": 0.96 },
+      { "title": "苏格兰折耳猫", "confidence": 0.02 },
+      { "title": "中华田园猫", "confidence": 0.01 }
     ],
-    "note": "整体状态良好，被毛浓密有光泽，未见明显皮肤异常。"
+    "breedProfile": {
+      "origin": "英国",
+      "temperament": ["温和沉静", "独立不强求", "对陌生人有分寸"],
+      "weight": "4 – 7.5 kg",
+      "life": "12 – 15 年",
+      "feeding": ["以优质动物蛋白为主（鸡肉、鱼肉、牛肉），低碳水防止发胖", "…"]
+    }
   }
 }
 ```
 
-`metrics[].state`：`good` 正常 / `watch` 需关注 / `risk` 建议检查。
+| 字段 | 说明 |
+| --- | --- |
+| `risk` | 置信度分级：`confirmed` ≥0.85 / `uncertain` 0.45–0.85 / `rejected` <0.45（拒识，此时 `title` 为空、仅返回 alternatives） |
+| `alternatives` | 模型 top-3，供用户「识别不准」时参考与手动纠正 |
+| `breedProfile` | top1 品种档案摘要（来自品种库查表，**非模型推理**）；品种库未收录时为 `null` |
+
+> 手动纠正提交后，本条识别记录的 `corrected` / `status` 才会变化（见 4.7.3）。
 
 #### 4.7.2 识别历史 `●`
 
 `GET /recognitions?page=1&pageSize=20`
 
-#### 4.7.3 异步识别（推理较慢时推荐）
+```json
+{
+  "data": {
+    "list": [
+      {
+        "id": "rc1770000000000",
+        "species": "cat",
+        "predicted": "英国短毛猫",
+        "corrected": null,
+        "confidence": 0.96,
+        "alternatives": [],
+        "status": "done",
+        "imageRef": "demo",
+        "time": "2026-10-14T10:52:00.000Z"
+      }
+    ],
+    "total": 12
+  }
+}
+```
+
+`status`：`done` 识别完成（未纠正） / `review` 已手动纠正待审核 / `approved` 审核通过（计入训练数据集） / `rejected` 审核驳回（维持模型原预测）。
+
+#### 4.7.3 提交手动纠正 `●`
+
+`POST /recognitions/{id}/correction`
+
+```json
+{ "breed": "苏格兰折耳猫" }
+```
+
+**行为**：`breed` 必须是品种库中与 `species` 一致的品种名；记录进入管理端审核队列（`status → review`）。用户侧立即按纠正后的品种展示，审核通过前标注「纠正待审核」。
+
+**响应**：更新后的识别记录对象（同 4.7.2 列表项）。
+
+#### 4.7.4 异步识别（推理较慢时推荐）
 
 `POST /recognitions/async` → `{ "taskId": "t1" }`
 `GET /recognitions/tasks/{taskId}` → `{ "state": "pending|success|failed", "result": {...} }`
@@ -898,7 +1085,7 @@ breed (字典表)
 }
 ```
 
-#### 4.8.2 品种详情 `○`
+#### 4.8.2 品种详情 `●`
 
 `GET /breeds/{id}`
 
@@ -915,10 +1102,25 @@ breed (字典表)
     "life": "12 – 15 年",
     "issues": ["肥厚型心肌病", "肥胖倾向", "多囊肾（少见）"],
     "care": "被毛短而致密，每周梳理 1–2 次即可…",
+    "feeding": [
+      "以优质动物蛋白为主（鸡肉、鱼肉、牛肉），低碳水防止发胖",
+      "成猫每日 60–80 g，分 2–3 餐投喂，固定品牌减少软便",
+      "零食不超过每日总热量 10%，不喂人食（洋葱/巧克力致命）",
+      "用饮水机或湿粮拌水骗水，预防泌尿问题"
+    ],
+    "aiPrompts": ["英短特别容易发胖，怎么科学控制体重？", "英短幼猫一天喂几顿、喂多少合适？"],
     "coverUrl": null
   }
 }
 ```
+
+| 字段 | 说明 |
+| --- | --- |
+| `feeding` | 喂食建议（编号列表，识别结果页取前 2 条展示） |
+| `aiPrompts` | 联动 AI 问诊的快捷提问：点击后以 `{ pet: <品种名>, note: <问题原文> }` 进入 `/consult/ai`，由知识库检索补充该品种语料后作答 |
+| `issues` / `care` | 易患问题 / 护理要点（原有字段） |
+
+> 品种档案是「识别 → 建议」的查表数据源：所有建议内容均来自本接口与知识库，**不经过视觉模型推理**。
 
 ---
 
@@ -1051,6 +1253,8 @@ breed (字典表)
 | `petId` | string | 否 | 携带宠物档案上下文（品种/年龄/体重） |
 | `images` | array | 否 | 已上传图片 URL 数组 |
 | `sessionId` | string | 否 | 多轮追问上下文 ID |
+| `contextRecords` | array | 否 | 用户从健康档案勾选导入的记录（见下方「档案导入」） |
+| `rag` | bool | 否 | 是否启用品种知识库检索（默认 true） |
 
 **响应**
 
@@ -1075,12 +1279,36 @@ breed (字典表)
         { "text": "已持续「2–3 天」", "w": 1 },
         { "text": "伴随「精神萎靡」", "w": 3 }
       ],
-      "dept": "internal"
+      "dept": "internal",
+      "cite": "英国短毛猫品种档案 · 易患问题：心肌病、多囊肾",
+      "citeBreedId": "british-shorthair"
     },
     "reply": "根据描述，呕吐持续 2–3 天且精神偏弱，建议尽快做一次面诊…",
     "quota": { "free": 3, "used": 2, "left": 1 }
   }
 }
+```
+
+**RAG 品种知识引用（`rag=true` 时）**
+
+服务端按 `petId` 对应的品种检索品种库（`breed` 表），把「易患疾病 / 护理要点」注入 `system prompt`，并在分诊卡上返回引用字段，前端渲染为「参考知识库」行 + 品种档案链接：
+
+| 字段 | 说明 |
+| --- | --- |
+| `cite` | 引用摘要，如「英国短毛猫品种档案 · 易患问题：心肌病、多囊肾」 |
+| `citeBreedId` | 被引用品种 ID，前端跳 `/breed/{id}` |
+
+> 检索为空（品种库未收录）时两个字段省略，前端不渲染引用行；**不得编造引用**。
+
+**档案导入（`contextRecords`）**
+
+前端「从档案导入近期变化」把用户勾选的健康记录 / 识别记录 / 历史报告打包随消息提交，服务端将其作为会话上下文（渲染为 context 卡片，不计入用户输入字数）：
+
+```json
+"contextRecords": [
+  { "kind": "record", "label": "体重", "value": "4.6 kg", "date": "2026-10-10", "note": "较上周 +0.2" },
+  { "kind": "recognition", "label": "品种识别", "value": "英国短毛猫", "date": "2026-10-12", "note": "置信度 96%" }
+]
 ```
 
 `level` 三级枚举：
@@ -1613,6 +1841,24 @@ AI 预问诊完成或真人问诊结束时调用。**请求结构必须与前端
 
 `POST /posts/{id}/comments`，请求 `{ "text": "..." }`。
 
+#### 4.14.7 举报帖子 `●`
+
+`POST /posts/{id}/report`
+
+社区「更多 → 举报」入口，写入后进入管理端「内容审核 → 举报处理」队列。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `reason` | string | 是 | 举报理由枚举：`广告或垃圾信息` / `辱骂攻击` / `血腥暴力` / `违法违规` / `侵犯权益` / `其他` |
+| `detail` | string | 否 | 补充说明，≤200 字 |
+
+```json
+{ "data": { "id": "rp1760000000000", "state": "pending" } }
+```
+
+> 同一用户对同一帖子的重复举报返回 `code=42202`（前端提示「你已举报过这条动态」）。
+> 举报记录结构见 §3 数据模型 `post_report`；管理端处理接口见 4.18.8。
+
 ---
 
 ### 4.15 即时消息 IM
@@ -1665,6 +1911,55 @@ AI 预问诊完成或真人问诊结束时调用。**请求结构必须与前端
 #### 4.15.4 标记已读 `●`
 
 `POST /conversations/{id}/read` → `{ "data": { "unread": 0 } }`
+
+#### 4.15.5 通讯录 `●`
+
+`GET /contacts?q=`
+
+```json
+{
+  "data": {
+    "groups": [
+      {
+        "id": "friends",
+        "label": "我的好友",
+        "members": [
+          {
+            "id": "ct-aju",
+            "name": "阿橘的日常",
+            "kind": "friend",
+            "bio": "英短麻薯的家长 · 换季护理达人",
+            "online": false,
+            "chatId": null,
+            "doctorId": null,
+            "pet": { "name": "麻薯", "breed": "英国短毛猫", "age": 1 },
+            "posts": 9,
+            "fans": "1.2k"
+          }
+        ]
+      },
+      { "id": "vets", "label": "我的兽医", "members": [] },
+      { "id": "groups", "label": "宠物社群", "members": [] }
+    ],
+    "total": 10
+  }
+}
+```
+
+**字段约定**
+
+| 字段 | 说明 |
+| --- | --- |
+| `kind` | `vet` 执业兽医 / `group` 群聊 / `friend` 好友 |
+| `chatId` | 非空 → 客户端直达 `GET /conversations/{chatId}/messages` |
+| `doctorId` | 非空 → 客户端跳兽医资料页 `GET /doctors/{doctorId}` |
+| 两者皆空 | 客户端以联系人 id 发起新会话：`POST /conversations`（body `{ "contactId": "ct-aju" }`）返回会话 id |
+
+`q` 为可选关键字，按姓名/简介过滤；命中为空的分组不返回。
+
+#### 4.15.6 发起会话 `●`
+
+`POST /conversations`，请求 `{ "contactId": "ct-aju" }`，返回新建（或已存在）的会话对象，结构同 4.15.1 单项。
 
 ---
 
@@ -1798,6 +2093,149 @@ AI 预问诊完成或真人问诊结束时调用。**请求结构必须与前端
 | PUT | `/admin/dictionary` （全量覆盖） |
 | POST | `/admin/dictionary/symptoms` （新增症状） |
 | PATCH | `/admin/dictionary/symptoms/{id}` |
+
+#### 4.18.5 识别记录审核 `●`
+
+管理端对用户手动纠正的识别记录进行审核，实现「用户纠正 → 审核 → 数据回流」闭环。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/admin/recognitions?state=&page=` | 识别记录列表；`state`：`done / review / approved / rejected / failed`，支持 `keyword` 搜索用户/品种 |
+| POST | `/admin/recognitions/{id}/review` | 审核 `{ pass: true }` 通过（`status → approved`，计入训练数据集）；`{ pass: false }` 驳回（`status → rejected`，展示回模型原预测，`corrected` 清空） |
+
+**列表项结构**（与 4.7.2 列表项一致，附管理端展示字段）：
+
+```json
+{
+  "id": "rc-demo1",
+  "user": "柯基豆豆妈",
+  "pet": "豆豆",
+  "species": "dog",
+  "predicted": "柯基犬",
+  "corrected": "瑞典柯基犬",
+  "confidence": 0.61,
+  "time": "2026-10-14 16:40",
+  "status": "review"
+}
+```
+
+> 置信度 <0.60 的记录由系统自动标记 `review`（低置信待审），与用户手动纠正的 `review` 在列表中以「低置信待审 / 纠正待审核」区分。
+
+#### 4.18.6 导出训练数据集 `●`
+
+`POST /admin/recognitions/dataset/export`
+
+将全部 `status=approved` 的纠正样本导出为训练数据集（增量训练用）。
+
+**响应**（或直接返回文件下载，`Content-Disposition: attachment`）：
+
+```json
+{
+  "data": {
+    "dataset": "petwise-corrections",
+    "count": 1,
+    "samples": [
+      {
+        "image_ref": "rc-demo3",
+        "species": "cat",
+        "label": "苏格兰折耳猫",
+        "model_predicted": "英国短毛猫",
+        "model_confidence": 0.79,
+        "source": "user_correction",
+        "reviewed": true
+      }
+    ]
+  }
+}
+```
+
+**落地约定**：导出的 `image_ref` 需能在对象存储中取到原图（识别时持久化的图片 key）；`label` 为人工确认标签，可直接拼入 `cv/dog` 或 `cv/cat` 的 `ImageFolder` 结构做增量训练（见 `cv/README.md`）。建议按周导出，导出后服务端将这批样本标记 `exported`，避免重复导出。
+
+#### 4.18.7 用户与兽医管理 `●`
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/admin/users?state=&keyword=&page=` | C 端用户列表；`state`：`active` / `frozen` |
+| POST | `/admin/users` | 新增用户 `{ name, phone, password, petCount? }`；手机号重复 `code=42204` |
+| PATCH | `/admin/users/{id}` | 改状态 `{ state: 'frozen' \| 'active' }` 冻结/恢复 |
+| DELETE | `/admin/users/{id}` | 删除（演示内置账号不可删） |
+| POST | `/admin/users/{id}/password-reset` | 重置密码，返回一次性新密码 `{ password: "430090" }`（管理员抄送用户） |
+| GET | `/admin/doctors?dept=&online=` | 兽医账号列表 |
+| POST | `/admin/doctors` | 新增兽医 `{ name, dept, hospital, phone, online }` |
+| PATCH | `/admin/doctors/{id}` | 改科室/医院/上下线/冻结 |
+| DELETE | `/admin/doctors/{id}` | 删除兽医账号 |
+
+> 兽医账号与 C 端用户是两套身份：兽医可登录医生工作台接诊，`state='frozen'` 时强制下线。
+
+#### 4.18.8 内容审核与举报处理 `●`
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/admin/posts?state=&page=` | 社区内容列表；`state`：`pending / pass / reject` |
+| POST | `/admin/posts/{id}/review` | 人工审核 `{ pass: true }` 通过 / `{ pass: false }` 驳回（下架并通知作者） |
+| GET | `/admin/post-reports?state=&page=` | 举报队列；`state`：`pending / removed / ignored` |
+| POST | `/admin/post-reports/{id}/handle` | 处理举报 `{ action: 'remove' }` 下架内容 / `{ action: 'ignore' }` 驳回举报 |
+
+**AI 预审（内容列表内置字段）**：`GET /admin/posts` 返回的每条内容附带 `aiReview`：
+
+```json
+{
+  "id": "p7003",
+  "author": "推广小王子",
+  "text": "低价宠物药品，加微信 XXXXXX 私聊。",
+  "state": "pending",
+  "aiReview": {
+    "hit": true,
+    "words": ["低价", "微信", "私聊"],
+    "kind": "广告导流",
+    "suggestion": "reject"
+  }
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `hit` | 是否命中敏感词库 |
+| `words` | 命中的词（最多返回 4 个） |
+| `kind` | 违规归类：`广告导流` / `辱骂攻击` / `违法违规` |
+| `suggestion` | AI 建议：`reject`（命中）/ `pass`（未命中，仅作参考） |
+
+> 词库由 4.18.4 字典维护接口管理；AI 预审结论**仅供参考**，最终以人工审核为准——命中项标红提示，不自动下架。
+
+---
+
+### 4.19 钱包
+
+#### 4.19.1 钱包余额 `●`
+
+`GET /wallet`
+
+```json
+{
+  "data": {
+    "balance": 68.5,
+    "currency": "CNY",
+    "txns": [
+      { "id": "t1", "amount": 30, "note": "充值", "time": "2026-10-12 10:00", "balanceAfter": 98.5 }
+    ]
+  }
+}
+```
+
+#### 4.19.2 充值 `●`
+
+`POST /wallet/topup`，`{ "amount": 50 }`（固定档位 30/50/100/200）。
+
+服务端创建支付单并返回收银台参数（微信/支付宝）；演示环境直接入账。
+`amount` 非法（非正数/超上限）返回 `code=42205`。
+
+#### 4.19.3 提现 `●`
+
+`POST /wallet/withdraw`，`{ "amount": 20 }`。
+
+余额不足返回 `code=42206`；演示环境直接扣减并记流水。
+
+> 钱包当前服务于问诊红包/退款场景；所有流水 `txns[]` 追加不可改，`amount>0` 入账、`<0` 出账。
 
 ---
 

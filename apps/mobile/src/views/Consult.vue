@@ -24,7 +24,10 @@
         <PetAvatar :species="p.species" :name="p.name" :size="18" :ring="false" />
         {{ p.name }}
       </button>
-      <span class="pet-meta">{{ curPet.breed }} · {{ curPet.age }}岁 · {{ curPet.weight }}kg</span>
+      <button class="import-btn" type="button" @click="openImport">
+        <AppIcon name="notes" :size="13" />
+        档案导入
+      </button>
     </div>
 
     <!-- 免费额度 -->
@@ -99,23 +102,41 @@
     <!-- 对话区 -->
     <div class="chat-list" ref="listEl">
       <template v-for="(m, i) in messages" :key="i">
+        <!-- 档案导入卡片：AI 读取的结构化上下文 -->
+        <div v-if="m.kind === 'context'" class="ctx-card">
+          <header class="cc-head">
+            <AppIcon name="notes" :size="14" />
+            已导入宠物档案
+            <span class="cc-time num">{{ m.time }}</span>
+          </header>
+          <ul class="cc-list">
+            <li v-for="(c, j) in m.context" :key="j">{{ c }}</li>
+          </ul>
+        </div>
+        <template v-else-if="m.kind === 'triage'">
+          <TriageCard
+            :level="m.triage.level"
+            :label="m.triage.label"
+            :short="m.triage.short"
+            :advice="m.triage.advice"
+            :causes="m.triage.causes"
+            :actions="m.triage.actions"
+            :confidence="m.triage.confidence"
+            @escalate="goDoctors(m.triage.dept)"
+          />
+          <!-- RAG 引用：结论挂上知识库出处，可点进品种档案核实 -->
+          <p v-if="m.cite" class="rag-cite">
+            <AppIcon name="notes" :size="12" />
+            参考知识库：{{ m.cite }}
+            <router-link v-if="m.citeBreedId" :to="`/breed/${m.citeBreedId}`" class="cite-link">查看品种档案 →</router-link>
+          </p>
+        </template>
         <ChatBubble
-          v-if="m.kind !== 'triage'"
+          v-else
           :role="m.role === 'me' ? 'me' : 'them'"
           :text="m.text"
           :time="m.time"
           :name="m.role === 'ai' ? 'AI' : '我'"
-        />
-        <TriageCard
-          v-else
-          :level="m.triage.level"
-          :label="m.triage.label"
-          :short="m.triage.short"
-          :advice="m.triage.advice"
-          :causes="m.triage.causes"
-          :actions="m.triage.actions"
-          :confidence="m.triage.confidence"
-          @escalate="goDoctors(m.triage.dept)"
         />
       </template>
       <div v-if="typing" class="typing">
@@ -129,6 +150,65 @@
         <button v-for="f in followups" :key="f" class="fu-chip" type="button" @click="send(f)">
           {{ f }}
         </button>
+      </div>
+    </transition>
+
+    <!-- 档案导入面板：把结构化档案/记录/识别/报告带入对话 -->
+    <transition name="sheet">
+      <div v-if="importOpen" class="sheet-mask" @click.self="importOpen = false">
+        <div class="sheet">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <h3 class="sheet-title">导入宠物档案</h3>
+          <p class="sheet-sub">勾选要带入对话的内容，AI 会结合这些背景判断</p>
+
+          <div class="imp-group">
+            <h4 class="imp-h">基础档案</h4>
+            <label class="imp-row locked">
+              <input type="checkbox" checked disabled />
+              <span class="imp-body">
+                <b>{{ curPet.name }} · {{ curPet.breed }}</b>
+                <span>{{ curPet.age }}岁 · {{ curPet.weight }}kg · {{ curPet.gender }} · 健康分 {{ curPet.healthScore }}</span>
+              </span>
+            </label>
+          </div>
+
+          <div v-if="impRecords.length" class="imp-group">
+            <h4 class="imp-h">近期健康记录</h4>
+            <label v-for="r in impRecords" :key="r.id" class="imp-row">
+              <input v-model="impPicked" type="checkbox" :value="`rec:${r.id}`" />
+              <span class="imp-body">
+                <b>{{ recordLabel(r.kind) }} · {{ r.value }}</b>
+                <span>{{ r.date }}<template v-if="r.note"> · {{ r.note }}</template></span>
+              </span>
+            </label>
+          </div>
+
+          <div v-if="impRecognitions.length" class="imp-group">
+            <h4 class="imp-h">最近识别</h4>
+            <label v-for="r in impRecognitions" :key="r.id" class="imp-row">
+              <input v-model="impPicked" type="checkbox" :value="`recog:${r.id}`" />
+              <span class="imp-body">
+                <b>识别为 {{ r.predicted }}（{{ Math.round(r.confidence * 100) }}%）</b>
+                <span>{{ r.date }}{{ r.corrected ? ' · 已手动纠正' : '' }}</span>
+              </span>
+            </label>
+          </div>
+
+          <div v-if="impReports.length" class="imp-group">
+            <h4 class="imp-h">最近问诊报告</h4>
+            <label v-for="r in impReports" :key="r.id" class="imp-row">
+              <input v-model="impPicked" type="checkbox" :value="`report:${r.id}`" />
+              <span class="imp-body">
+                <b>{{ r.title }}</b>
+                <span>{{ r.date }} · {{ r.triage?.label || '已完成' }}</span>
+              </span>
+            </label>
+          </div>
+
+          <button class="f-submit" type="button" :disabled="!impPicked.length" @click="applyImport">
+            带入对话（{{ impPicked.length }}）
+          </button>
+        </div>
       </div>
     </transition>
 
@@ -161,8 +241,8 @@ import AppIcon from '@/components/icons/AppIcon.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
 import TriageCard from '@/components/TriageCard.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { consultSeed, consultSuggestions, pets, symptomGroups, triageRules } from '@/data/mock'
-import { aiQuota, consumeAiQuota } from '@/data/ops'
+import { consultSeed, consultSuggestions, pets, symptomGroups, triageRules, breedLibrary } from '@/data/mock'
+import { aiQuota, consumeAiQuota, recordsOf, recognitionHistory, reports } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const route = useRoute()
@@ -170,6 +250,10 @@ const router = useRouter()
 
 const petId = ref(pets[0].id)
 const curPet = computed(() => pets.find((p) => p.id === petId.value) || pets[0])
+// RAG：当前品种的知识档案（没有则退化为通用建议）
+const breedDoc = computed(
+  () => breedLibrary.find((b) => b.name === curPet.value.breed) || null
+)
 
 const messages = ref([...consultSeed])
 const input = ref('')
@@ -211,6 +295,17 @@ watch(
     ctx.note = route.query.note || ''
     greetWithCtx()
   }
+)
+
+// 从问诊中心知识库带问题直达：自动发送该问题
+watch(
+  () => route.query.q,
+  (q) => {
+    if (!q) return
+    router.replace({ path: '/consult/ai' })
+    send(q)
+  },
+  { immediate: true }
 )
 
 function now() {
@@ -281,22 +376,26 @@ function deptOf(text) {
   return 'internal'
 }
 
-// 演示用：根据关键词生成贴合的问诊回复（接入大模型后由后端流式返回）
+// 演示用：根据关键词 + 品种知识库（RAG）生成贴合的问诊回复（接入大模型后由后端流式返回）
 function aiReply(text) {
   const t = text.toLowerCase()
+  // RAG 检索：把品种档案里的易患问题与护理要点带进回复
+  const rag = breedDoc.value
+    ? `另外，${breedDoc.value.name}${breedDoc.value.issues?.length ? '易患「' + breedDoc.value.issues.slice(0, 2).join('、') + '」' : ''}，日常护理上${breedDoc.value.care ? breedDoc.value.care.slice(0, 40) + '…' : '建议定期体检'}。`
+    : ''
   if (t.includes('耳朵')) {
-    return '频繁挠耳朵常见原因有耳螨、外耳道炎或过敏。建议先观察耳道是否有黑褐色分泌物或异味，避免自行掏挖。若持续 2 天以上或宠物表现出疼痛，请预约线下检查。'
+    return '频繁挠耳朵常见原因有耳螨、外耳道炎或过敏。建议先观察耳道是否有黑褐色分泌物或异味，避免自行掏挖。若持续 2 天以上或宠物表现出疼痛，请预约线下检查。' + rag
   }
   if (t.includes('吃饭') || t.includes('食欲') || t.includes('不爱吃')) {
-    return '短期食欲下降可能与天气、应激或食物变更有关。可尝试少量多餐、温热食物。若超过 24 小时拒食、伴随呕吐或精神萎靡，请尽快问诊。'
+    return '短期食欲下降可能与天气、应激或食物变更有关。可尝试少量多餐、温热食物。若超过 24 小时拒食、伴随呕吐或精神萎靡，请尽快问诊。' + rag
   }
   if (t.includes('疫苗')) {
-    return '幼猫/幼犬基础免疫通常在 6–8 周开始，每 2–4 周一针，完成基础免疫后每年加强。接种前需确保宠物健康、无寄生虫。'
+    return '幼猫/幼犬基础免疫通常在 6–8 周开始，每 2–4 周一针，完成基础免疫后每年加强。接种前需确保宠物健康、无寄生虫。' + rag
   }
   if (t.includes('皮肤') || t.includes('照片')) {
-    return '已收到照片区域描述。皮肤问题需关注红斑、脱毛、皮屑与抓挠频率。请保持患处干燥清洁，避免舔舐；若范围扩大或出现渗液，建议拍照后线下面诊。'
+    return '已收到照片区域描述。皮肤问题需关注红斑、脱毛、皮屑与抓挠频率。请保持患处干燥清洁，避免舔舐；若范围扩大或出现渗液，建议拍照后线下面诊。' + rag
   }
-  return '我理解你的情况了。请补充一下宠物的年龄、品种、症状持续时间和精神状态，我会给出更有针对性的初步判断。注意：我的建议仅作参考，紧急情况请立即就医。'
+  return '我理解你的情况了。请补充一下宠物的年龄、品种、症状持续时间和精神状态，我会给出更有针对性的初步判断。注意：我的建议仅作参考，紧急情况请立即就医。' + rag
 }
 
 // 根据对话生成相关随访建议，让对话自然延续
@@ -307,6 +406,73 @@ function genFollowups(text) {
   if (t.includes('疫苗')) return ['接种记录怎么看', '接种后注意什么', '能洗澡吗？']
   if (t.includes('皮肤')) return ['居家怎么护理', '要忌口吗', '什么时候必须面诊']
   return ['帮我记录症状', '这种情况要去医院吗', '日常怎么护理']
+}
+
+/* ---------- 档案导入：结构化上下文带入对话 ---------- */
+
+const importOpen = ref(false)
+const impPicked = ref([])
+
+const impRecords = computed(() =>
+  recordsOf(petId.value)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, 4)
+)
+const impRecognitions = computed(() => recognitionHistory().slice(0, 2))
+const impReports = computed(() =>
+  reports()
+    .filter((r) => r.petId === petId.value)
+    .slice(0, 2)
+)
+
+function recordLabel(kind) {
+  return { weight: '体重', diet: '饮食', symptom: '症状', care: '护理' }[kind] || '记录'
+}
+
+function openImport() {
+  impPicked.value = []
+  importOpen.value = true
+}
+
+function applyImport() {
+  const lines = [`${curPet.value.name}：${curPet.value.breed} · ${curPet.value.age}岁 · ${curPet.value.weight}kg · 健康分 ${curPet.value.healthScore}`]
+  impPicked.value.forEach((key) => {
+    const [kind, id] = key.split(':')
+    if (kind === 'rec') {
+      const r = recordsOf(petId.value).find((x) => x.id === id)
+      if (r) lines.push(`${r.date} ${recordLabel(r.kind)}：${r.value}${r.note ? '（' + r.note + '）' : ''}`)
+    } else if (kind === 'recog') {
+      const r = recognitionHistory().find((x) => x.id === id)
+      if (r) lines.push(`${r.date} 拍照识别：${r.predicted}（置信度 ${Math.round(r.confidence * 100)}%）${r.corrected ? '，用户已手动纠正' : ''}`)
+    } else if (kind === 'report') {
+      const r = reports().find((x) => x.id === id)
+      if (r) lines.push(`${r.date} 问诊报告：${r.title}，分诊「${r.triage?.label || '已完成'}」`)
+    }
+  })
+  if (lines.length < 2) {
+    showToast('请至少勾选一项档案内容', { type: 'info' })
+    return
+  }
+
+  importOpen.value = false
+  messages.value.push({ role: 'me', kind: 'context', time: now(), context: lines })
+
+  typing.value = true
+  scrollToEnd()
+  setTimeout(() => {
+    typing.value = false
+    const breedTip = breedDoc.value
+      ? `结合品种档案：${breedDoc.value.name}${breedDoc.value.issues?.length ? '易患「' + breedDoc.value.issues.slice(0, 2).join('、') + '」' : ''}，日常${breedDoc.value.care ? breedDoc.value.care.slice(0, 42) + '…' : '注意定期体检'}。`
+      : ''
+    messages.value.push({
+      role: 'ai',
+      text: `已读取 ${lines.length - 1} 项档案背景。${breedTip}请描述它现在最明显的异常，以及什么时候开始的，我来判断。`,
+      time: now()
+    })
+    followups.value = ['它最近精神不太好', '排便有点异常', '食欲下降了']
+    scrollToEnd()
+  }, 1100)
 }
 
 function send(preset) {
@@ -345,7 +511,15 @@ function send(preset) {
         dept: deptOf(text)
       }
       lastTriage.value = triage
-      messages.value.push({ role: 'ai', kind: 'triage', time: now(), triage })
+      messages.value.push({
+        role: 'ai',
+        kind: 'triage',
+        time: now(),
+        triage,
+        // RAG 引用：结论可溯源到品种档案
+        cite: breedDoc.value ? `${breedDoc.value.name}品种档案 · 易患 ${breedDoc.value.issues?.slice(0, 2).join('、') || '—'}` : '',
+        citeBreedId: breedDoc.value ? breedDoc.value.id : ''
+      })
       followups.value = ['这种情况要立刻去医院吗', '现在能做些什么', '转真人医生看看']
     } else {
       messages.value.push({ role: 'ai', text: aiReply(text), time: now() })
@@ -639,15 +813,17 @@ onMounted(scrollToEnd)
 .chat-list {
   display: flex;
   flex-direction: column;
-  padding-bottom: 96px;
+  padding-bottom: 128px; /* 清空固定输入栏 + 底部导航 */
 }
+/* 短对话贴底对齐；首个子元素上推，避免 flex-end 溢出陷阱 */
+.chat-list > :first-child { margin-top: auto; }
 
 /* 随访建议 */
 .followups {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + 56px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + 62px + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   gap: 8px;
@@ -690,12 +866,12 @@ onMounted(scrollToEnd)
 .typing span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes bounce { 0%,100%{transform:translateY(0);opacity:0.4} 50%{transform:translateY(-5px);opacity:1} }
 
-/* 输入栏：固定底部，独立于滚动区 */
+/* 输入栏：固定底部，停靠在底部导航正上方 */
 .composer {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   align-items: center;
@@ -744,7 +920,7 @@ onMounted(scrollToEnd)
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + 56px + 44px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + 106px + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   text-align: center;
   font-size: 11px;
@@ -756,6 +932,168 @@ onMounted(scrollToEnd)
 
 .ctx-enter-active, .ctx-leave-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 .ctx-enter-from, .ctx-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ---------- 档案导入 ---------- */
+.import-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  background: var(--color-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  padding: 6px 11px;
+  border-radius: var(--radius-pill);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.import-btn:active { transform: scale(0.95); }
+
+/* RAG 引用 */
+.rag-cite {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: -8px 0 16px 4px;
+  font-size: 11px;
+  color: var(--color-faint);
+  line-height: 1.5;
+}
+.rag-cite svg { flex-shrink: 0; }
+.cite-link { color: var(--color-accent-ink); font-weight: 700; }
+
+/* 档案导入卡片（对话内） */
+.ctx-card {
+  align-self: stretch;
+  border-radius: var(--radius-md);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent-soft) 55%, white);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.cc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+.cc-time { margin-left: auto; font-weight: 400; color: var(--color-faint); }
+.cc-list {
+  list-style: none;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.cc-list li {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  padding-left: 12px;
+  position: relative;
+}
+.cc-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* ---------- 档案导入面板 ---------- */
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(27, 42, 34, 0.36);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: var(--shell-max);
+  max-height: 84dvh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 10px 20px 28px;
+}
+.sheet-grip {
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  margin: 0 auto 16px;
+}
+.sheet-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
+.sheet-sub {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 4px 0 14px;
+}
+.imp-group { margin-bottom: 16px; }
+.imp-h {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-faint);
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.imp-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: var(--color-bg);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.imp-row.locked { opacity: 0.75; cursor: default; }
+.imp-row input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+.imp-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.imp-body b { font-size: 13.5px; }
+.imp-body span { font-size: 11.5px; color: var(--color-muted); line-height: 1.5; }
+.f-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 15px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font-size: 16px;
+  font-weight: 700;
+  transition: opacity var(--dur-fast);
+}
+.f-submit:disabled { opacity: 0.4; }
+
+.sheet-enter-active,
+.sheet-leave-active { transition: opacity var(--dur-base) var(--ease-out); }
+.sheet-enter-from,
+.sheet-leave-to { opacity: 0; }
+.sheet-enter-active .sheet,
+.sheet-leave-active .sheet { transition: transform var(--dur-base) var(--ease-out); }
+.sheet-enter-from .sheet,
+.sheet-leave-to .sheet { transform: translateY(100%); }
 
 @media (prefers-reduced-motion: reduce) {
   .typing span { animation: none; }

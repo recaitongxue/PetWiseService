@@ -1,0 +1,16 @@
+kind: dog
+root: datasets/dog
+image_root: datasets/dog/high-resolution
+annotations_root: datasets/dog/high-annotations
+split_dir: datasets/dog/TrainAndValList
+splits:
+  train: train.lst
+  val: val.lst
+  test: test.lst
+image_size: 384
+seed: 42
+# THU-Dogs 提供 head/body 双 bbox 标注；裁剪到目标区域可显著抑制背景、提升细粒度区分度
+use_bbox: true
+bbox_mode: body          # body | head | union | none
+dataloader:
+  num_workers: 8

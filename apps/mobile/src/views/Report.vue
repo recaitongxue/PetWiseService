@@ -21,9 +21,10 @@
       </div>
       <h2 class="cover-title">{{ r.title }}</h2>
       <p class="cover-sub">
-        {{ r.petName }}<span v-if="r.chief?.partLabel"> · {{ r.chief.partLabel }}</span>
+        {{ r.petName }}<span v-if="petInfo.breed"> · {{ petInfo.breed }}<template v-if="petInfo.age"> · {{ petInfo.age }}岁</template></span>
         <span v-if="r.doctor"> · {{ r.doctor.name }}{{ r.doctor.title }}</span>
       </p>
+      <p class="cover-no num">报告编号 {{ r.id }}</p>
     </article>
 
     <!-- 主诉（结构化） -->
@@ -57,6 +58,20 @@
         <div v-if="r.chief?.photos" class="chief-row">
           <span class="chief-k">附件</span>
           <span class="chief-v">患处照片 {{ r.chief.photos }} 张</span>
+        </div>
+      </div>
+
+      <!-- 导入的近期变化：从档案带入，形成时间线 -->
+      <div v-if="r.chief?.records?.length" class="timeline">
+        <div class="tl-head">
+          <AppIcon name="clock" :size="13" />
+          近期变化（来自健康档案）
+        </div>
+        <div v-for="(rec, i) in r.chief.records" :key="i" class="tl-row">
+          <span class="tl-date num">{{ rec.date }}</span>
+          <span class="tl-kind">{{ rec.label }}</span>
+          <span class="tl-val">{{ rec.value }}</span>
+          <span v-if="rec.note" class="tl-note">{{ rec.note }}</span>
         </div>
       </div>
     </section>
@@ -157,6 +172,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import TriageCard from '@/components/TriageCard.vue'
 import { reportById, archiveReport, remindFromReport } from '@/data/ops'
+import { pets } from '@/data/mock'
 import { showToast } from '@/composables/toast'
 
 const route = useRoute()
@@ -167,6 +183,8 @@ function goBack() {
 
 const r = ref(reportById(route.params.id))
 const scoreOpen = ref(true)
+
+const petInfo = computed(() => pets.find((p) => p.id === r.value?.petId) || {})
 
 const reload = () => (r.value = reportById(route.params.id))
 
@@ -185,8 +203,53 @@ function remind() {
   }
 }
 
-function exportReport() {
-  showToast('演示环境暂不支持导出图片，可截图分享给线下医生', { type: 'info' })
+// 复制报告全文：方便粘贴到微信发给线下医生（真实浏览器可用）
+async function exportReport() {
+  const x = r.value
+  if (!x) return
+  const c = x.chief || {}
+  const lines = [
+    `【PetWise 问诊报告】${x.title}`,
+    `类型：${x.type === 'ai' ? 'AI 预问诊' : '真人医生问诊'} · 日期：${x.date} · 编号：${x.id}`,
+    `宠物：${x.petName}${petInfo.value.breed ? '（' + petInfo.value.breed + (petInfo.value.age ? '，' + petInfo.value.age + '岁' : '') + '）' : ''}`,
+    '',
+    '— 主诉 —',
+    ...(c.symptomLabels || []).map((s) => `· ${s}`),
+    `持续：${c.durationLabel || '—'} · 状态：${c.severityLabel || '—'}`,
+    ...(c.accompanyLabels || []).map((s) => `伴随：${s}`),
+    ...(c.note ? [`补充：${c.note}`] : []),
+    ...(c.photos ? [`附件：患处照片 ${c.photos} 张`] : []),
+    '',
+    '— 分诊结论 —',
+    `${x.triage?.label || ''}：${x.triage?.short || ''}`,
+    ...(x.triage?.causes || []).map((s) => `可能原因：${s}`),
+    ...(x.triage?.actions || []).map((s) => `建议动作：${s}`),
+    `复查：${x.triage?.followUp || '—'}`,
+    '',
+    '— 医生建议 —',
+    ...(x.doctorAdvice || []).map((s, i) => `${i + 1}. ${s}`),
+    '',
+    '（本报告仅供参考，不能替代执业兽医当面诊断）'
+  ]
+  const text = lines.join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    showToast('报告全文已复制，可粘贴到微信发给医生', { type: 'success' })
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+      showToast('报告全文已复制', { type: 'success' })
+    } catch {
+      showToast('复制失败，请截图分享', { type: 'info' })
+    }
+    document.body.removeChild(ta)
+  }
 }
 
 function toDoctors() {
@@ -205,6 +268,8 @@ function deptOf() {
 </script>
 
 <style scoped>
+/* 底部操作栏停靠区：给固定 .bar + 底部导航留出空间 */
+.screen { padding-bottom: 132px; }
 .r-head {
   display: flex;
   align-items: center;
@@ -246,6 +311,47 @@ function deptOf() {
   margin-top: 11px;
 }
 .cover-sub { font-size: 12.5px; color: var(--color-muted); margin-top: 5px; }
+.cover-no { font-size: 10.5px; color: var(--color-faint); margin-top: 8px; letter-spacing: 0.04em; }
+
+/* ---------- 导入的近期变化时间线 ---------- */
+.timeline {
+  margin-top: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: var(--color-surface);
+  padding: 12px 14px;
+}
+.tl-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink-2);
+  margin-bottom: 9px;
+}
+.tl-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-ink-2);
+  padding: 5px 0;
+  border-top: 1px dashed var(--hairline);
+}
+.tl-row:first-of-type { border-top: none; }
+.tl-date { font-weight: 700; color: var(--color-faint); font-size: 11.5px; }
+.tl-kind {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  background: var(--color-accent-soft);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+}
+.tl-val { font-weight: 600; }
+.tl-note { color: var(--color-faint); font-size: 11.5px; }
 
 /* ---------- 区块 ---------- */
 .blk { margin-top: 22px; }
@@ -396,7 +502,7 @@ function deptOf() {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   align-items: center;

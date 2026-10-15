@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">管理端登录 Login</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/login</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="37.8" height="22" width="75.5" fill="#EAF1EC"/><text x="55.8" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">未登录访问</text><rect x="101.5" y="64" rx="32.0" height="22" width="64.0" fill="#EAF1EC"/><text x="133.5" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">退出登录</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">账号密码</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">admin / petwise 字符串</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">比对</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">写登录标记</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">petwise_admin_auth =</text><text x="200" y="149.5" font-size="10.5" fill="#5C6B62">&#x27;1&#x27;</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">守卫分流</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">已登录访问登录页 → 跳看</text><text x="370" y="149.5" font-size="10.5" fill="#5C6B62">板</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 无 token、无过期、无角色</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="68.1" height="22" width="136.22" fill="#EFEDE7"/><text x="86.1" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">localStorage 单标记</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/dashboard</text>
+</svg>

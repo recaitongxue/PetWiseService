@@ -458,8 +458,10 @@ onMounted(() => {
 .chat-list {
   display: flex;
   flex-direction: column;
-  padding-bottom: 96px;
+  padding-bottom: 128px; /* 清空固定输入栏 + 底部导航 */
 }
+/* 短对话贴底对齐（主流 IM 习惯）；首个子元素上推，避免 flex-end 溢出陷阱 */
+.chat-list > :first-child { margin-top: auto; }
 .sys {
   align-self: center;
   font-size: 11.5px;
@@ -530,7 +532,7 @@ onMounted(() => {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   align-items: center;

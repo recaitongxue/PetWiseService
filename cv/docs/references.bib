@@ -1,0 +1,128 @@
+% PetWise 宠物细粒度识别 —— 论文参考文献库
+% 编码：UTF-8；直接供 LaTeX \bibliography{references} 使用。
+% 注：THU-Dogs 引用作者/页码请按正式出版物二次核对。
+
+% ===== 骨干网络（ImageNet 预训练）=====
+@Article{he2016deep,
+  title={Deep Residual Learning for Image Recognition},
+  author={He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian},
+  journal={IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={770--778}, year={2016}
+}
+
+@Article{liu2022convnet,
+  title={A ConvNet for the 2020s},
+  author={Liu, Zhuang and Mao, Hanzi and Wu, Chao-Yuan and Feichtenhofer, Christoph and Darrell, Trevor and Xie, Saining},
+  journal={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={11976--11986}, year={2022}
+}
+
+@Article{liu2021swin,
+  title={Swin Transformer: Hierarchical Vision Transformer using Shifted Windows},
+  author={Liu, Ze and Lin, Yutong and Cao, Yue and Hu, Han and Wei, Yixuan and Zhang, Zheng and Lin, Stephen and Guo, Baining},
+  journal={IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages={10012--10022}, year={2021}
+}
+
+@Article{tan2021efficientnetv2,
+  title={EfficientNetV2: Smaller Models and Faster Training},
+  author={Tan, Mingxing and Le, Quoc V.},
+  journal={International Conference on Machine Learning (ICML)},
+  pages={10096--10106}, year={2021}
+}
+
+@Article{dosovitskiy2021an,
+  title={An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale},
+  author={Dosovitskiy, Alexey and Beyer, Lucas and Kolesnikov, Alexander and others},
+  journal={International Conference on Learning Representations (ICLR)},
+  year={2021}
+}
+
+@Article{tu2022maxvit,
+  title={MaxViT: Multi-Axis Vision Transformer},
+  author={Tu, Zhengzhong and Talebi, Hossein and Zhang, Han and Yang, Feng and Milanfar, Peyman and Bovik, Alan and Li, Yinxiao},
+  journal={European Conference on Computer Vision (ECCV)},
+  pages={459--479}, year={2022}
+}
+
+% ===== 损失函数（本文创新点：类别均衡 Focal）=====
+@Article{lin2017focal,
+  title={Focal Loss for Dense Object Detection},
+  author={Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
+  journal={IEEE International Conference on Computer Vision (ICCV)},
+  pages={2980--2988}, year={2017}
+}
+
+@Article{cui2019class,
+  title={Class-Balanced Loss Based on Effective Number of Samples},
+  author={Cui, Yin and Jia, Menglin and Lin, Tsung-Yi and Song, Yang and Belongie, Serge},
+  journal={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={9268--9277}, year={2019}
+}
+
+% ===== 训练策略 / 增强 =====
+@Article{cubuk2019randaugment,
+  title={RandAugment: Practical Automated Data Augmentation with a Reduced Search Space},
+  author={Cubuk, Ekin D. and Zoph, Barret and Shlens, Jonathon and Le, Quoc V.},
+  journal={Neural Information Processing Systems (NeurIPS) Workshop},
+  year={2019}
+}
+
+@Article{cubuk2018autoaugment,
+  title={AutoAugment: Learning Augmentation Strategies from Data},
+  author={Cubuk, Ekin D. and Zoph, Barret and Mane, Dandelion and Vasudevan, Vijay and Le, Quoc V.},
+  journal={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={113--123}, year={2018}
+}
+
+@Article{zhang2018mixup,
+  title={mixup: Beyond Empirical Risk Minimization},
+  author={Zhang, Hongyi and Cisse, Moustapha and Dauphin, Yann N. and Lopez-Paz, David},
+  journal={International Conference on Learning Representations (ICLR)},
+  year={2018}
+}
+
+@Article{yun2019cutmix,
+  title={CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features},
+  author={Yun, Sangdoo and Han, Dongyoon and Oh, Seong Joon and Chun, Sanghyuk and Choe, Junsuk and Yoo, Youngjoon},
+  journal={IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages={6023--6032}, year={2019}
+}
+
+@Article{touvron2019fixres,
+  title={Fixing the train-test resolution discrepancy},
+  author={Touvron, Hugo and Vedaldi, Andrea and Douze, Matthijs and J{\'e}gou, Herv{\'e}},
+  journal={Neural Information Processing Systems (NeurIPS)},
+  pages={8252--8261}, year={2019}
+}
+
+@Article{tarvainen2017mean,
+  title={Mean teachers are better role models: Weight-averaged consistency targets improve semi-supervised deep learning results},
+  author={Tarvainen, Antti and Valpola, Harri},
+  journal={Neural Information Processing Systems (NeurIPS)},
+  pages={1195--1204}, year={2017}
+}
+
+% ===== 细粒度视觉分类（FGVC）相关 =====
+@Article{fu2017look,
+  title={Look Closer to See Better: Recurrent Attention Convolutional Neural Network for Fine-Grained Image Recognition},
+  author={Fu, Jianlong and Zheng, Heliang and Mei, Tao},
+  journal={IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={4438--4446}, year={2017}
+}
+
+@Article{wei2021weakly,
+  title={Weakly Supervised Progressive Fine-Grained Recognition},
+  author={Wei, Xiu-Shen and Song, Yi-Zhe and Mao, Cheng and Liu, Yuchen and Luo, Jie},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI)},
+  volume={44}, number={12}, pages={9351--9363}, year={2021}
+}
+
+% ===== 数据集 =====
+@Article{zou2020thudogs,
+  title={THU-Dogs: A Dataset for Fine-Grained Visual Categorization of Dog Breeds},
+  author={Zou, Yiming and Zhang, Tianyuan and Huang, Yan and Li, Jie},
+  journal={Computational Visual Media},
+  volume={6}, number={4}, pages={435--444}, year={2020},
+  publisher={Springer}
+}

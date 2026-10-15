@@ -129,20 +129,19 @@ PetWiseService/
 
 **有什么用**：模型从"数据"到"权重"的离线生产线。**唯一产物是 `artifacts/` 下的 `.onnx`**，被 `services/vision` 消费。训练(几小时、torch)与推理(毫秒、onnxruntime)生命周期不同，故与 `vision` 严格分离。
 
+**狗与猫各训一个独立模型**（`kind=dog` / `cat`），线上由 vision 按置信度路由；因此目录按「共享内核 + 每个物种一条自包含流水线」组织：两个数据集结构完全不同（狗：lst 清单 + bbox 标注；猫：ImageFolder 无标注），但模型工厂 / 训练器 / 评测器 / 导出器完全通用。
+
 | 子目录 | 职责 | 该放 | 禁止 |
 |---|---|---|---|
-| `configs/` ✅ | 训练/数据/导出超参(yaml) | `train.yaml` `dataset.yaml` `export.yaml` | — |
-| `src/data/` ✅ | 数据集与划分 | `dataset.py` `split.py` | 推理代码 |
-| `src/models/` ✅ | 模型定义 | `factory.py`(backbone 工厂) | — |
-| `src/train/` ✅ | 训练循环 | `trainer.py` | 推理代码 |
-| `src/eval/` ✅ | 评测 | `evaluate.py` | — |
-| `src/export/` ✅ | 导出 ONNX | `to_onnx.py` | torch 推理服务 |
-| `notebooks/` ✅ | 探索性实验 | 只做研究记录 | ❌ 进流水线 |
-| `scripts/` ✅ | 入口脚本 | `train.sh` `eval.sh` `export.sh` | — |
-| `datasets/` ✅(gitignore) | 原始/处理后数据 | 14 万图(原 model/data) | 代码 |
-| `artifacts/` ✅(gitignore) | 训练产出 | `best.pt` `model.onnx` `labels.json` | — |
-| `tests/` ✅ | 单测 | — | — |
-| `requirements.txt` ✅ | torch 侧依赖(独立 venv) | — | 与 api 混用 |
+| `common/` ✅ | 共享训练内核(dog/cat 复用，未来 skin 直接接入) | `data/norm.py`(归一化常量) `data/transforms.py`(预处理) `models/factory.py` `train/trainer.py` `eval/evaluate.py` `export/to_onnx.py` | 物种专属逻辑 |
+| `dog/` ✅ | 狗流水线(THU-Dogs 130 类，带 body 框裁剪) | `src/data/thudogs*.py` `configs/` `scripts/` `tests/` `README.md` | 猫的数据逻辑 |
+| `cat/` ✅ | 猫流水线(60 类，ImageFolder 无 bbox) | `src/data/cat*.py` `configs/` `scripts/` `tests/` `README.md` | 狗的数据逻辑 |
+| `datasets/` ✅(gitignore) | 原始/处理后数据 | `datasets/dog` `datasets/cat`(原 model/data) | 代码 |
+| `artifacts/` ✅(gitignore) | 训练产出(两模型共用，manifest 累积) | `best-dog.pt` `model-dog-v1.onnx` `labels-dog.json` `manifest.json` | — |
+| 根目录 `pyproject.toml` / `uv.lock` ✅ | 统一 Python 依赖与锁定版本（`uv sync`） | — | — |
+
+> 命令需在物种目录内执行（`cd cv/dog && bash scripts/train.sh`）：`dog/` 与 `cat/` 的包名同为 `src`，
+> 脚本会自动把 `cv/` 加入 `PYTHONPATH`，从而导入共享内核 `common`。
 
 ---
 

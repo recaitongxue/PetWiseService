@@ -30,7 +30,7 @@
           class="fav-remove"
           type="button"
           aria-label="取消收藏"
-          @click.prevent="remove(f.id)"
+          @click.prevent="remove(f)"
         >
           <AppIcon name="x" :size="15" />
         </button>
@@ -46,6 +46,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import { favorites } from '@/data/mock'
+import { customFavorites, removeFavorite } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const router = useRouter()
@@ -61,9 +62,12 @@ const tabs = [
 ]
 const tab = ref('all')
 const removed = ref([])
+const customRemoved = ref([])
 
+// 内置演示收藏 + 用户在社区主动收藏的（持久化）
 const rows = computed(() => {
-  const list = favorites.filter((f) => !removed.value.includes(f.id))
+  const mine = customFavorites().filter((f) => !customRemoved.value.includes(f.id))
+  const list = [...mine, ...favorites].filter((f) => !removed.value.includes(f.id))
   return tab.value === 'all' ? list : list.filter((f) => f.kind === tab.value)
 })
 
@@ -71,8 +75,13 @@ function iconOf(kind) {
   return { breed: 'search', post: 'paw', tip: 'sparkle' }[kind] || 'bookmark'
 }
 
-function remove(id) {
-  removed.value.push(id)
+function remove(f) {
+  if (f.custom) {
+    removeFavorite(f.id)
+    customRemoved.value.push(f.id)
+  } else {
+    removed.value.push(f.id)
+  }
   showToast('已取消收藏')
 }
 </script>

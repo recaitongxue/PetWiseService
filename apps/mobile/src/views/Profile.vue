@@ -18,7 +18,7 @@
         <p class="user-handle">{{ maskedPhone }}</p>
         <p class="user-bio">{{ user.bio }}</p>
       </div>
-      <button class="edit-btn" type="button">编辑</button>
+      <button class="edit-btn" type="button" @click="openEdit">编辑</button>
     </article>
 
     <div class="stats" v-reveal="{ delay: 120 }">
@@ -54,6 +54,24 @@
     <!-- 功能菜单 -->
     <section class="block" v-reveal="{ delay: 200 }">
       <div class="menu">
+        <button class="menu-row" type="button" @click="openWallet">
+          <span class="menu-ic sage"><AppIcon name="wallet" :size="20" /></span>
+          <span class="menu-label">我的钱包</span>
+          <span class="menu-balance num">¥{{ walletInfo.balance.toFixed(2) }}</span>
+          <AppIcon name="back" :size="16" class="menu-arrow" />
+        </button>
+        <router-link to="/account" class="menu-row">
+          <span class="menu-ic coral"><AppIcon name="shield" :size="20" /></span>
+          <span class="menu-label">账号管理</span>
+          <span class="menu-badge num">安全 · 隐私 · 注销</span>
+          <AppIcon name="back" :size="16" class="menu-arrow" />
+        </router-link>
+        <router-link to="/community" class="menu-row">
+          <span class="menu-ic peach"><AppIcon name="paw" :size="20" /></span>
+          <span class="menu-label">我的社区主页</span>
+          <span class="menu-badge num">{{ user.followers }} 粉丝</span>
+          <AppIcon name="back" :size="16" class="menu-arrow" />
+        </router-link>
         <router-link to="/records" class="menu-row">
           <span class="menu-ic sage"><AppIcon name="stethoscope" :size="20" /></span>
           <span class="menu-label">问诊记录</span>
@@ -63,7 +81,7 @@
         <router-link to="/favorites" class="menu-row">
           <span class="menu-ic peach"><AppIcon name="bookmark" :size="20" /></span>
           <span class="menu-label">我的收藏</span>
-          <span class="menu-badge num">{{ favorites.length }}</span>
+          <span class="menu-badge num">{{ favorites.length + customFavCount }}</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
         </router-link>
         <router-link to="/schedule" class="menu-row">
@@ -71,6 +89,12 @@
           <span class="menu-label">提醒与日程</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
         </router-link>
+        <button class="menu-row" type="button" @click="clearCache">
+          <span class="menu-ic ink"><AppIcon name="refresh" :size="20" /></span>
+          <span class="menu-label">清除本地缓存</span>
+          <span class="menu-badge num">{{ cacheSize }}</span>
+          <AppIcon name="back" :size="16" class="menu-arrow" />
+        </button>
         <button class="menu-row" type="button" @click="fbOpen = true">
           <span class="menu-ic coral"><AppIcon name="comment" :size="20" /></span>
           <span class="menu-label">意见反馈</span>
@@ -115,17 +139,145 @@
         </div>
       </div>
     </transition>
+
+    <!-- 钱包弹层 -->
+    <transition name="sheet">
+      <div v-if="walletOpen" class="sheet-mask" @click.self="walletOpen = false">
+        <div class="sheet tall">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <div class="w-card">
+            <span class="w-label">账户余额（元）</span>
+            <b class="w-balance num">{{ walletInfo.balance.toFixed(2) }}</b>
+            <span class="w-note">可用于问诊付费与商城消费</span>
+          </div>
+          <div class="w-actions">
+            <button
+              v-for="amt in rechargeAmounts"
+              :key="amt"
+              class="w-amt"
+              type="button"
+              @click="recharge(amt)"
+            >充 {{ amt }}</button>
+          </div>
+          <h4 class="w-h">交易明细</h4>
+          <div v-if="walletInfo.txns.length" class="w-list">
+            <div v-for="t in walletInfo.txns" :key="t.id" class="w-row">
+              <span class="w-ic" :class="t.type"><AppIcon :name="t.type === 'recharge' ? 'plus' : 'back'" :size="14" /></span>
+              <div class="w-row-body">
+                <b>{{ t.note }}</b>
+                <span class="num">{{ t.time }}</span>
+              </div>
+              <span class="w-amt-num num" :class="t.type">{{ t.type === 'recharge' ? '+' : '-' }}{{ t.amount.toFixed(2) }}</span>
+            </div>
+          </div>
+          <p v-else class="w-empty">暂无交易记录</p>
+          <button class="fb-submit ghost" type="button" @click="withdraw">提现到微信</button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 编辑资料弹层 -->
+    <transition name="sheet">
+      <div v-if="editOpen" class="sheet-mask" @click.self="editOpen = false">
+        <div class="sheet">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <h3 class="sheet-title">编辑资料</h3>
+          <p class="sheet-sub">昵称与简介展示在社区主页</p>
+          <label class="f-field">
+            <span>昵称</span>
+            <input v-model="editForm.name" class="f-input" type="text" maxlength="12" placeholder="怎么称呼你" />
+          </label>
+          <label class="f-field mt">
+            <span>简介</span>
+            <input v-model="editForm.bio" class="f-input" type="text" maxlength="30" placeholder="一句话介绍自己" />
+          </label>
+          <button class="fb-submit" type="button" :disabled="!editForm.name.trim()" @click="submitEdit">保存</button>
+        </div>
+      </div>
+    </transition>
   </section>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
 import { useRouter } from 'vue-router'
 import { user, pets, consultRecords, favorites } from '@/data/mock'
-import { submitFeedback, logout, getAuth } from '@/data/ops'
+import { submitFeedback, logout, getAuth, wallet, walletTransact, customFavorites } from '@/data/ops'
 import { showToast } from '@/composables/toast'
+
+const router = useRouter()
+
+/* ---------- 钱包 ---------- */
+
+const walletOpen = ref(false)
+const walletInfo = ref(wallet())
+const rechargeAmounts = [30, 50, 100, 200]
+
+function openWallet() {
+  walletInfo.value = wallet()
+  walletOpen.value = true
+}
+function recharge(amt) {
+  walletInfo.value = walletTransact(amt, '余额充值')
+  showToast(`充值 ¥${amt} 成功`, { type: 'success' })
+}
+function withdraw() {
+  if (walletInfo.value.balance <= 0) {
+    showToast('余额不足，先充一笔', { type: 'info' })
+    return
+  }
+  const all = walletInfo.value.balance
+  walletInfo.value = walletTransact(-all, '提现到微信')
+  showToast(`已提现 ¥${all.toFixed(2)} 到微信`, { type: 'success' })
+}
+
+/* ---------- 编辑资料 ---------- */
+
+const editOpen = ref(false)
+const editForm = reactive({ name: user.name, bio: user.bio })
+
+function openEdit() {
+  editForm.name = user.name
+  editForm.bio = user.bio
+  editOpen.value = true
+}
+function submitEdit() {
+  user.name = editForm.name.trim() || user.name
+  user.bio = editForm.bio.trim()
+  editOpen.value = false
+  showToast('资料已更新', { type: 'success' })
+}
+
+/* ---------- 清除缓存 ---------- */
+
+const customFavCount = computed(() => customFavorites().length)
+
+const cacheSize = computed(() => {
+  let bytes = 0
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('petwise_')) bytes += (localStorage.getItem(k) || '').length
+    }
+  } catch (e) { /* ignore */ }
+  return bytes > 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`
+})
+
+function clearCache() {
+  const keys = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('petwise_') && k !== 'petwise_auth') keys.push(k)
+    }
+  } catch (e) { /* ignore */ }
+  keys.forEach((k) => localStorage.removeItem(k))
+  showToast(`已清除 ${keys.length} 项本地数据（保留登录态）`, { type: 'success' })
+}
+
+/* ---------- 意见反馈 ---------- */
 
 const fbOpen = ref(false)
 const fbType = ref('suggestion')
@@ -155,7 +307,6 @@ const maskedPhone = authPhone
   : user.handle
 
 // 退出登录：清登录态后回到登录页，并禁止返回上一个已登录页面
-const router = useRouter()
 function onLogout() {
   logout()
   showToast('已退出登录')
@@ -376,6 +527,116 @@ function onLogout() {
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet { transform: translateY(40%); }
 .menu-label { flex: 1; text-align: left; font-weight: 700; font-size: 15px; }
+.menu-balance {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+  padding-right: 4px;
+}
+
+/* ---------- 钱包 ---------- */
+.sheet.tall { max-height: 84dvh; overflow-y: auto; }
+.w-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 18px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, var(--color-ink), #2e4a3c);
+  color: #fff;
+}
+.w-label { font-size: 12px; opacity: 0.75; }
+.w-balance {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.w-note { font-size: 11px; opacity: 0.6; }
+.w-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.w-amt {
+  flex: 1;
+  padding: 12px 0;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.w-amt:active { transform: scale(0.95); }
+.w-h {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin: 20px 0 10px;
+}
+.w-list { display: flex; flex-direction: column; gap: 2px; }
+.w-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--hairline);
+}
+.w-row:last-child { border-bottom: none; }
+.w-ic {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--color-sage-soft);
+  color: var(--color-good);
+}
+.w-ic.withdraw { background: var(--color-surface-2); color: var(--color-muted); transform: rotate(180deg); }
+.w-row-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.w-row-body b { font-size: 14px; }
+.w-row-body span { font-size: 11px; color: var(--color-faint); }
+.w-amt-num { font-size: 15px; font-weight: 700; color: var(--color-good); }
+.w-amt-num.withdraw { color: var(--color-muted); }
+.w-empty {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-faint);
+  padding: 22px 0;
+}
+
+/* ---------- 表单（改密 / 编辑资料） ---------- */
+.f-field { display: flex; flex-direction: column; gap: 6px; }
+.f-field.mt { margin-top: 12px; }
+.f-field span { font-size: 12px; font-weight: 700; color: var(--color-muted); }
+.f-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline-strong);
+  background: var(--color-bg);
+  font: inherit;
+  font-size: 15px;
+  color: var(--color-ink);
+  outline: none;
+}
+.f-input:focus { outline: 2px solid var(--color-accent); outline-offset: -1px; }
+.f-error {
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-alert);
+}
+.fb-submit.ghost {
+  margin-top: 16px;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  box-shadow: none;
+}
 
 /* 退出登录：与菜单分离，弱化但不隐藏 */
 .logout {

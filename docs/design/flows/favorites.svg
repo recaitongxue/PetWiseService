@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 306" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+<rect width="680" height="306" rx="14" fill="#FBF8F2"/>
+<rect x="18" y="16" rx="8" width="5" height="22" fill="#3E6B57"/>
+<text x="32" y="33" font-size="16.5" font-weight="700" fill="#1F2E26">我的收藏 Favorites</text>
+<text x="32" y="49" font-size="11" fill="#8A968F">/favorites</text>
+<rect x="572" y="18" rx="11" width="90" height="22" fill="#F8F1DF"/>
+<circle cx="586" cy="29" r="3.4" fill="#C9973B"/>
+<text x="596" y="33" font-size="11.5" font-weight="600" fill="#C9973B">演示实现</text>
+<text x="18" y="79" font-size="11" font-weight="600" fill="#5C6B62">入口</text>
+<rect x="18.0" y="64" rx="49.2" height="22" width="98.5" fill="#EAF1EC"/><text x="67.2" y="79" text-anchor="middle" font-size="11.5" fill="#3E6B57">我的→我的收藏</text>
+<text x="18" y="118" font-size="11" font-weight="600" fill="#5C6B62">流程</text>
+<rect x="18" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="18" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="30" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">4 类筛选</text><text x="30" y="136.0" font-size="10.5" fill="#5C6B62">全部 / 品种 / 帖子 / 贴</text><text x="30" y="149.5" font-size="10.5" fill="#5C6B62">士</text><line x1="169" y1="132.0" x2="184" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 184 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="188" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="188" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="200" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">整行跳转</text><text x="200" y="136.0" font-size="10.5" fill="#5C6B62">按类型去详情页</text><line x1="339" y1="132.0" x2="354" y2="132.0" stroke="#8FAE9B" stroke-width="1.4"/><path d="M 354 132.0 l -5 -2.4 l 5 -2.6 z" fill="#8FAE9B"/><rect x="358" y="96" rx="10" width="148" height="72" fill="#FFFFFF" stroke="rgba(31,46,38,.14)"/><rect x="358" y="96" rx="10" width="4" height="72" fill="#3E6B57"/><text x="370" y="118" font-size="12.5" font-weight="600" fill="#1F2E26">取消收藏</text><text x="370" y="136.0" font-size="10.5" fill="#5C6B62">右侧 ×</text>
+<rect x="18" y="190" rx="10" width="644" height="34" fill="#F8ECE6" stroke="#C96A4A" stroke-dasharray="4 3" stroke-opacity=".45"/><text x="30" y="208" font-size="11.5" font-weight="600" fill="#C96A4A">分支与规则</text><text x="30" y="226" font-size="11" fill="#1F2E26">· ⚠ 取消只存内存，刷新后收藏复活</text>
+<text x="18" y="256" font-size="11" font-weight="600" fill="#5C6B62">数据源</text>
+<rect x="18.0" y="240" rx="54.1" height="22" width="108.16000000000001" fill="#EFEDE7"/><text x="72.1" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">mock.favorites</text><rect x="134.2" y="240" rx="63.1" height="22" width="126.10000000000001" fill="#EFEDE7"/><text x="197.2" y="255" text-anchor="middle" font-size="11.5" fill="#1F2E26">→ GET /favorites</text>
+<text x="18" y="274" font-size="11" font-weight="600" fill="#5C6B62">出口</text>
+<rect x="18.0" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="59.2" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/breed/:id</text><rect x="108.4" y="272" rx="41.2" height="22" width="82.4" fill="#F8F1DF"/><text x="149.6" y="287" text-anchor="middle" font-size="11.5" fill="#8A6A1E">/community</text>
+</svg>

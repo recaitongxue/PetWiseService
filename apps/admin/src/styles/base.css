@@ -124,6 +124,7 @@ ul { list-style: none; }
   background: currentColor;
 }
 .badge.good { color: var(--color-good); background: var(--color-sage-soft); }
+.badge.ok { color: var(--color-pine, #2d4a3e); background: #DDEAE1; }
 .badge.watch { color: #A66E14; background: #F7E8CB; }
 .badge.alert { color: var(--color-alert); background: var(--color-accent-soft); }
 .badge.neutral { color: var(--color-muted); background: var(--color-surface-2); }

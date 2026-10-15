@@ -5,13 +5,30 @@
         <p class="eyebrow">MESSAGES</p>
         <h1 class="title">消息</h1>
       </div>
-      <button class="icon-btn" type="button" aria-label="搜索">
-        <AppIcon name="search" :size="22" />
-      </button>
+      <router-link to="/contacts" class="icon-btn" type="button" aria-label="通讯录">
+        <AppIcon name="user" :size="22" />
+      </router-link>
     </header>
 
+    <!-- 搜索：按昵称或最近消息过滤 -->
+    <div class="search" v-reveal="{ delay: 40 }">
+      <AppIcon name="search" :size="16" />
+      <input v-model="q" class="search-input" type="search" placeholder="搜索联系人或消息" />
+      <button v-if="q" class="search-clear" type="button" aria-label="清空" @click="q = ''">
+        <AppIcon name="x" :size="14" />
+      </button>
+    </div>
+
+    <!-- 通讯录入口：三组联系人直达 -->
+    <router-link to="/contacts" class="gate-row" v-reveal="{ delay: 60 }">
+      <span class="gate-ic"><AppIcon name="user" :size="19" /></span>
+      <span class="gate-label">通讯录</span>
+      <span class="gate-count num">{{ contactCount }} 位联系人</span>
+      <AppIcon name="back" :size="14" class="gate-arrow" />
+    </router-link>
+
     <ul class="conv-list">
-      <li v-for="c in conversations" :key="c.id" v-reveal>
+      <li v-for="c in visibleConvs" :key="c.id" v-reveal>
         <router-link :to="`/chat/${c.id}`" class="conv">
           <span class="conv-avatar">
             {{ initial(c.name) }}
@@ -31,12 +48,27 @@
         </router-link>
       </li>
     </ul>
+
+    <p v-if="!visibleConvs.length" class="empty">没有匹配的会话</p>
   </section>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { conversations } from '@/data/mock'
+import { conversations, contactGroups } from '@/data/mock'
+
+const q = ref('')
+
+const contactCount = contactGroups.reduce((s, g) => s + g.members.length, 0)
+
+const visibleConvs = computed(() => {
+  const kw = q.value.trim().toLowerCase()
+  if (!kw) return conversations
+  return conversations.filter(
+    (c) => c.name.toLowerCase().includes(kw) || c.last.toLowerCase().includes(kw)
+  )
+})
 
 function kindLabel(k) {
   return { vet: '兽医', group: '群聊', friend: '好友' }[k] || ''
@@ -65,6 +97,75 @@ function initial(name) {
   border: 1px solid var(--color-border);
   color: var(--color-ink);
 }
+
+/* 搜索 */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+  color: var(--color-faint);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--color-ink);
+  outline: none;
+}
+.search-input::-webkit-search-cancel-button { display: none; }
+.search-clear {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+.empty {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 14px;
+  padding: 30px 0;
+}
+
+/* ---------- 通讯录入口行 ---------- */
+.gate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-soft);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.gate-row:active { transform: scale(0.978); }
+.gate-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--color-sage-soft);
+  color: var(--color-good);
+  flex-shrink: 0;
+}
+.gate-label { flex: 1; font-weight: 700; font-size: 15px; }
+.gate-count { font-size: 11px; font-weight: 700; color: var(--color-faint); }
+.gate-arrow { color: var(--color-faint); transform: rotate(180deg); flex-shrink: 0; }
+
 .conv-list {
   margin-top: 14px;
 }

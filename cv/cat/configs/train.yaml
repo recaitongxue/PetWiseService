@@ -1,0 +1,25 @@
+# 猫识别（自采 60 类）论文主实验配置
+# 与狗刻意采用不同骨干（EfficientNet-V2-L），体现"猫狗模型可不一样"
+backbone: efficientnet_v2_l
+epochs: 100
+warmup_epochs: 5
+lr: 1.0e-4
+lr_head_multiplier: 10
+weight_decay: 0.05
+batch_size: 20
+grad_accum: 2
+ema: 0.999
+loss_name: cb_focal
+focal_gamma: 2.0
+cb_beta: 0.9999
+label_smoothing: 0.1
+aug: randaug
+randaug_n: 2
+randaug_m: 9
+erase: 0.25
+balance: true
+balance_alpha: 0.5
+amp: true
+patience: 20
+tta: true
+freeze_epochs: 2

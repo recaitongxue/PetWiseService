@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
-# 数据准备（只需 CPU）：
-#   1) 切分测试集：把 validation.lst 确定性切成 val.lst（早停/选模型）+ test.lst（独立评测）
-#   2) 生成 labels.json：解析全部 lst，产出类别表
-# 数据根目录默认读 configs/dataset.yaml 的 dataset.root；设 ROOT_DIR 可覆盖（Docker 挂载等）
+# 生成标签映射 labels-<kind>.json（训练必需，类别索引<->名称）
+# 用法：bash scripts/prepare.sh [dog] [cat]
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export PYTHONPATH="$(pwd)${PYTHONPATH:+:$PYTHONPATH}"
 
-python scripts/split_test.py \
-  --root "${ROOT_DIR:-datasets}" \
-  --ratio "${TEST_RATIO:-0.5}" \
-  --seed "${SEED:-42}"
+KINDS=("$@")
+if [ ${#KINDS[@]} -eq 0 ]; then KINDS=(dog cat); fi
 
-python -m src.data.make_labels \
-  --dataset-config configs/dataset.yaml \
-  ${ROOT_DIR:+--root "$ROOT_DIR"} \
-  --out "${OUT:-artifacts/labels.json}" \
-  --version "${VERSION:-v1}"
+for KIND in "${KINDS[@]}"; do
+  echo "==> 构建 ${KIND} 标签映射"
+  python -c "
+import sys; sys.path.insert(0,'.')
+from common.data.labels import build_labels
+kind='${KIND}'
+root='datasets/'+kind
+out='artifacts/artifacts'
+import os; os.makedirs(out, exist_ok=True)
+labels=build_labels(kind, root, out)
+print(f'  {kind}: {labels[\"num_classes\"]} 类 -> artifacts/artifacts/labels-{kind}.json')
+"
+done

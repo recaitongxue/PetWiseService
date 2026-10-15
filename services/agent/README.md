@@ -28,8 +28,8 @@ services/api ──POST /internal/v1/triage──▶ services/agent
 
 ```bash
 cp .env.example .env          # 至少确认 INTERNAL_TOKEN 与 api 服务一致
-pip install -e .
-uvicorn app.main:app --reload --port 8082
+uv sync --extra graph
+uv run uvicorn app.main:app --reload --port 8082
 ```
 
 未配置 `LLM_API_KEY` 时服务进入 **mock 模式**：链路完整跑通，
@@ -58,14 +58,14 @@ python -m app.knowledge.cli search "猫尿不出来怎么办" --top-k 3
 | provider | 依赖 | 适用 |
 | --- | --- | --- |
 | `hash` | 无 | 跑通链路、写测试（**不要用于效果评测**） |
-| `local` | `pip install -e ".[embedding]"` | 离线环境、论文实验推荐 |
+| `local` | `uv sync --extra graph --extra embedding` | 离线环境、论文实验推荐 |
 | `openai` | 无需额外依赖 | 任意 OpenAI 兼容端点 |
 
 改 provider 或模型后必须 `ingest --rebuild`，否则维度不匹配会直接报错。
 
 ## 编排引擎
 
-优先使用 LangGraph（`pip install -e ".[graph]"`）；
+优先使用 LangGraph（`uv sync --extra graph`）；
 未安装时自动退化为 `graph/runner.py` 里的顺序执行，**节点与输出完全一致**。
 用 `GET /health` 的 `engine` 字段确认当前生效的是哪一种。
 

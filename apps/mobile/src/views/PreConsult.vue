@@ -52,6 +52,25 @@
         </button>
       </div>
 
+      <!-- 0b · 从档案导入近期变化：让报告带上时间线，而不是单次快照 -->
+      <div v-if="stepIndex === 0" class="import">
+        <div class="import-h">
+          <AppIcon name="notes" :size="14" />
+          从档案导入近期变化
+          <router-link :to="`/pet/${petId}`" class="import-link">去补充 →</router-link>
+        </div>
+        <p v-if="!petRecords.length" class="import-empty">
+          这只宠物还没有健康记录。可在档案页记录体重、饮食、症状与护理，问诊时一键带入。
+        </p>
+        <label v-for="r in petRecords" :key="r.id" class="import-row">
+          <input v-model="imported" type="checkbox" :value="r.id" />
+          <span class="ir-body">
+            <b>{{ recordLabel(r.kind) }} · {{ r.value }}</b>
+            <span>{{ r.date }}<template v-if="r.note"> · {{ r.note }}</template></span>
+          </span>
+        </label>
+      </div>
+
       <!-- 1 · 部位 -->
       <div v-else-if="stepIndex === 1" class="chips">
         <button
@@ -164,7 +183,7 @@ import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
 import { pets, bodyParts, durations, severities, accompanyOptions } from '@/data/mock'
 import { scoreTriage } from '@/data/triage'
-import { saveReport } from '@/data/ops'
+import { saveReport, recordsOf } from '@/data/ops'
 import { showToast } from '@/composables/toast'
 
 const router = useRouter()
@@ -191,6 +210,19 @@ const photos = ref(0)
 
 const curPart = computed(() => bodyParts.find((b) => b.id === partId.value) || { symptoms: [] })
 const redFlags = computed(() => curPart.value.symptoms.filter((s) => s.redFlag && symptomIds.value.includes(s.id)))
+
+// 当前宠物的近期健康记录（供问卷导入）
+const petRecords = computed(() =>
+  recordsOf(petId.value)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, 5)
+)
+const imported = ref([])
+
+function recordLabel(kind) {
+  return { weight: '体重', diet: '饮食', symptom: '症状', care: '护理' }[kind] || '记录'
+}
 
 const canNext = computed(() => {
   switch (stepIndex.value) {
@@ -269,7 +301,12 @@ function next() {
         .filter((a) => accompanyIds.value.includes(a.id))
         .map((a) => a.label),
       note: note.value.trim(),
-      photos: photos.value
+      photos: photos.value,
+      // 从档案导入的近期变化：报告里形成时间线
+      records: imported.value
+        .map((id) => petRecords.value.find((r) => r.id === id))
+        .filter(Boolean)
+        .map((r) => ({ kind: r.kind, label: recordLabel(r.kind), value: r.value, date: r.date, note: r.note || '' }))
     },
     triage
   })
@@ -283,6 +320,9 @@ function toER() {
 </script>
 
 <style scoped>
+/* 底部步骤栏停靠区：给固定 .nav + 底部导航留出空间 */
+.screen { padding-bottom: 128px; }
+
 .r-head {
   display: flex;
   align-items: center;
@@ -470,7 +510,7 @@ function toER() {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
   width: min(var(--shell-max), 100%);
   display: flex;
   gap: 9px;
@@ -510,4 +550,54 @@ function toER() {
 
 .rise-enter-active, .rise-leave-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 .rise-enter-from, .rise-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ---------- 档案导入 ---------- */
+.import {
+  margin-top: 16px;
+  padding: 13px 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--hairline-strong);
+  background: var(--color-bg);
+}
+.import-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink-2);
+}
+.import-link {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-ink);
+}
+.import-empty {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-faint);
+}
+.import-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 9px;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+.import-row input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+.ir-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ir-body b { font-size: 13px; }
+.ir-body span { font-size: 11px; color: var(--color-muted); }
 </style>

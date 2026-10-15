@@ -52,13 +52,18 @@ export const pets = [
 ]
 
 // 识别记录（CV 调用日志）
+// state: done 已完成 / review 用户手动纠正待审核 / approved 已采纳（可导出训练集）/ rejected 已驳回 / failed 识别失败
+// corrected: 用户纠正后的品种（predicted 为模型原预测）
 export const recognitions = [
   { id: 'r9001', user: '林小满', pet: '麻薯', breed: '英国短毛猫', conf: 0.96, time: '17:12', state: 'done' },
   { id: 'r9002', user: '柯基豆豆妈', pet: '豆豆', breed: '柯基犬', conf: 0.93, time: '16:45', state: 'done' },
   { id: 'r9003', user: '橘座铲屎团', pet: '煤球', breed: '中华田园猫', conf: 0.88, time: '16:31', state: 'done' },
   { id: 'r9004', user: '新手铲屎官', pet: '年糕', breed: '布偶猫', conf: 0.42, time: '16:02', state: 'review' },
   { id: 'r9005', user: '遛弯不拴绳', pet: '坦克', breed: '金毛寻回犬', conf: 0.91, time: '15:47', state: 'done' },
-  { id: 'r9006', user: '匿名用户', pet: '—', breed: '无法识别', conf: 0.18, time: '15:20', state: 'failed' }
+  { id: 'r9006', user: '匿名用户', pet: '—', breed: '无法识别', conf: 0.18, time: '15:20', state: 'failed' },
+  { id: 'rc-demo1', user: '柯基豆豆妈', pet: '豆豆', breed: '瑞典柯基犬', predicted: '柯基犬', conf: 0.61, time: '今天 16:40', state: 'review' },
+  { id: 'rc-demo2', user: '橘座铲屎团', pet: '煤球', breed: '英国短毛猫', predicted: '中华田园猫', conf: 0.58, time: '今天 15:22', state: 'review' },
+  { id: 'rc-demo3', user: '林小满', pet: '麻薯', breed: '苏格兰折耳猫', predicted: '英国短毛猫', conf: 0.79, time: '昨天 21:03', state: 'approved' }
 ]
 
 // 社区内容审核
@@ -77,4 +82,25 @@ export const consults = [
   { id: 'c8003', user: '新手铲屎官', pet: '年糕', topic: '疫苗时间表', turns: 5, model: 'GLM-4', time: '15:52', state: 'done' },
   { id: 'c8004', user: '橘座铲屎团', pet: '煤球', topic: '皮肤红肿（含图）', turns: 9, model: 'GLM-4V', time: '15:11', state: 'transferred' },
   { id: 'c8005', user: '遛弯不拴绳', pet: '坦克', topic: '挑食', turns: 3, model: 'GLM-4', time: '14:40', state: 'done' }
+]
+
+// 兽医管理（医生账号）
+export const doctors = [
+  { id: 'd9001', name: '兽医老张', dept: '猫科内科', hospital: '爱诺德动物医院', phone: '137****9021', online: true, consults: 1286, rating: 4.9, state: 'active', joined: '2025-10-30' },
+  { id: 'd9002', name: '李医生', dept: '外科', hospital: '瑞鹏宠物医院中心店', phone: '138****1023', online: true, consults: 942, rating: 4.8, state: 'active', joined: '2025-11-12' },
+  { id: 'd9003', name: '王医生', dept: '皮肤科', hospital: '芭比堂动物医院', phone: '139****5566', online: false, consults: 678, rating: 4.7, state: 'active', joined: '2026-01-05' },
+  { id: 'd9004', name: '赵大夫', dept: '异宠专科', hospital: '爱诺德动物医院', phone: '150****7788', online: false, consults: 213, rating: 4.6, state: 'frozen', joined: '2026-03-20' }
+]
+
+// CV 模型状态（读取 cv/ 真实训练配置）
+export const modelStatus = [
+  { kind: 'dog', name: '狗 · 品种识别', backbone: 'convnext_large', classes: 130, note: 'cb_focal 长尾均衡 · @384' },
+  { kind: 'cat', name: '猫 · 品种识别', backbone: 'efficientnet_v2_l', classes: 60, note: 'cb_focal 长尾均衡 · @384' }
+]
+
+// AI 内容审核：敏感词库（演示版，接后端后由模型 + 词库双通道）
+export const sensitiveWords = [
+  '微信', 'VX', 'vx', '加我', '私聊', '低价', '促销', '优惠', '代购',
+  '辱骂', '垃圾', '该死', '打死',
+  '赌博', '色情', '毒品'
 ]

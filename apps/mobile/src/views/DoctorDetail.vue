@@ -110,10 +110,10 @@
     <div class="block" v-reveal="{ delay: 120 }">
       <div class="block-h-row">
         <h3 class="block-h">用户评价</h3>
-        <span class="block-hint">{{ doc.reviews.length }} 条</span>
+        <span class="block-hint">{{ reviews.length }} 条</span>
       </div>
       <ul class="reviews">
-        <li v-for="(r, i) in doc.reviews" :key="i" class="rv">
+        <li v-for="(r, i) in reviews" :key="i" class="rv">
           <div class="rv-top">
             <span class="rv-user">{{ r.user }}</span>
             <span class="rv-stars">
@@ -141,16 +141,16 @@
     </div>
   </section>
 
-  <p v-else class="empty">未找到该医生。</p>
+  <p v-else-if="loaded" class="empty">未找到该医生。</p>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { doctors, consultModes } from '@/data/mock'
-import { createConsultOrder } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { consultModes } from '@/data/static'
+import { fetchDoctor, createConsultOrder } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
@@ -158,47 +158,60 @@ function goBack() {
   router.back()
 }
 
-const doc = computed(() => doctors.find((d) => d.id === route.params.id) || null)
+const doc = ref(null)
+const loaded = ref(false)
+const reviews = computed(() => doc.value?.reviews || [])
 
 const mode = ref('text')
 const note = ref('')
 const summary = ref(null)
 const hasAI = computed(() => !!summary.value)
 
-onMounted(() => {
+onMounted(async () => {
   try {
     const raw = sessionStorage.getItem('petwise_case_summary')
     if (raw) summary.value = JSON.parse(raw)
   } catch {
     summary.value = null
   }
+  try {
+    doc.value = await fetchDoctor(route.params.id)
+  } catch (e) {
+    doc.value = null
+    showToast(e?.message || '医生信息加载失败', { type: 'error' })
+  }
+  loaded.value = true
 })
 
 const price = computed(() => (consultModes.find((m) => m.id === mode.value) || consultModes[0]).price)
 const modeLabel = computed(() => (consultModes.find((m) => m.id === mode.value) || consultModes[0]).label)
 
-function submit() {
+async function submit() {
   if (!doc.value) return
   const base = summary.value || {}
-  const order = createConsultOrder({
-    doctorId: doc.value.id,
-    mode: mode.value,
-    petId: base.petId || 'mochi',
-    price: price.value,
-    summary: {
-      petName: base.petName || '未指定',
-      breed: base.breed || '',
-      age: base.age ?? '',
-      weight: base.weight ?? '',
-      gender: base.gender || '',
-      symptoms: base.symptoms || [],
-      complaints: base.complaints || [],
-      triage: base.triage || null,
-      note: note.value
-    }
-  })
-  showToast(`已提交给 ${doc.value.name} 医生，请稍候`, { type: 'success' })
-  router.replace(`/consultation/${order.id}`)
+  try {
+    const order = await createConsultOrder({
+      doctorId: doc.value.id,
+      mode: mode.value,
+      petId: base.petId || 'mochi',
+      price: price.value,
+      summary: {
+        petName: base.petName || '未指定',
+        breed: base.breed || '',
+        age: base.age ?? '',
+        weight: base.weight ?? '',
+        gender: base.gender || '',
+        symptoms: base.symptoms || [],
+        complaints: base.complaints || [],
+        triage: base.triage || null,
+        note: note.value
+      }
+    })
+    showToast(`已提交给 ${doc.value.name} 医生，请稍候`, { type: 'success' })
+    router.replace(`/consultation/${order.id}`)
+  } catch (e) {
+    showToast(e?.message || '下单失败，请稍后重试', { type: 'error' })
+  }
 }
 </script>
 

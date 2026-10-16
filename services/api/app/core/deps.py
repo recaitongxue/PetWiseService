@@ -1,9 +1,8 @@
 """FastAPI 依赖注入集合。
 
-提供的三类依赖：
-- 鉴权：current_user / require_admin
-- 数据：Session（后续由 repos 层消费）
-- 对内：internal_call（服务间调用校验，见 clients/base.py）
+提供两类依赖：
+- 鉴权：current_user / require_admin（role=admin）
+- 数据：DbSession（每次请求一个会话）
 
 业务层不要自己解析 Header，一律从这里取，保证鉴权口径唯一。
 """
@@ -12,23 +11,16 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
 from sqlalchemy.orm import Session as DBSession
 
-from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.security import TokenPayload, decode_token
 from app.db import get_db
 
 # auto_error=False：由我们自己抛契约错误码，而不是 FastAPI 默认的 403
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def get_trace_id(request: Request) -> str:
-    """从请求状态读取 traceId（由 TraceIdMiddleware 注入）。"""
-    return str(getattr(request.state, "trace_id", "-"))
 
 
 def _extract_credentials(
@@ -58,14 +50,6 @@ def require_admin(payload: CurrentUser) -> TokenPayload:
 
 
 AdminUser = Annotated[TokenPayload, Depends(require_admin)]
-
-
-def get_settings_dep():
-    """把配置作为依赖暴露，便于测试覆盖。"""
-    return settings
-
-
-SettingsDep = Annotated[object, Depends(get_settings_dep)]
 
 
 # ── 数据 ──────────────────────────────────────────────

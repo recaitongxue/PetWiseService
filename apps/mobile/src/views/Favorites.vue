@@ -42,12 +42,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { favorites } from '@/data/mock'
-import { customFavorites, removeFavorite } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { fetchFavorites, removeFavorite } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 function goBack() {
@@ -62,12 +61,14 @@ const tabs = [
 ]
 const tab = ref('all')
 const removed = ref([])
-const customRemoved = ref([])
 
-// 内置演示收藏 + 用户在社区主动收藏的（持久化）
+// 收藏统一来自后端：{id, kind, title, desc, route}；模板按 to 跳转，这里做一次归一化
+const favorites = ref([])
+
 const rows = computed(() => {
-  const mine = customFavorites().filter((f) => !customRemoved.value.includes(f.id))
-  const list = [...mine, ...favorites].filter((f) => !removed.value.includes(f.id))
+  const list = favorites.value
+    .map((f) => ({ ...f, to: f.route || f.to || '/favorites' }))
+    .filter((f) => !removed.value.includes(f.id))
   return tab.value === 'all' ? list : list.filter((f) => f.kind === tab.value)
 })
 
@@ -75,15 +76,23 @@ function iconOf(kind) {
   return { breed: 'search', post: 'paw', tip: 'sparkle' }[kind] || 'bookmark'
 }
 
-function remove(f) {
-  if (f.custom) {
-    removeFavorite(f.id)
-    customRemoved.value.push(f.id)
-  } else {
+async function remove(f) {
+  try {
+    await removeFavorite(f.kind, f.targetId ?? f.id)
     removed.value.push(f.id)
+    showToast('已取消收藏')
+  } catch (e) {
+    showToast(e?.message || '取消收藏失败', { type: 'error' })
   }
-  showToast('已取消收藏')
 }
+
+onMounted(async () => {
+  try {
+    favorites.value = (await fetchFavorites()) || []
+  } catch (e) {
+    showToast(e?.message || '收藏加载失败', { type: 'error' })
+  }
+})
 </script>
 
 <style scoped>

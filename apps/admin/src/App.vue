@@ -10,7 +10,7 @@
 </template>
 
 <script setup>
-import ToastHost from '@/components/ToastHost.vue'
+import ToastHost from '@shared/ToastHost.vue'
 </script>
 
 <style>

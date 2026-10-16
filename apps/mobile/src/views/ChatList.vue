@@ -54,19 +54,33 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { conversations, contactGroups } from '@/data/mock'
+import { fetchConversations, fetchContactGroups } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const q = ref('')
 
-const contactCount = contactGroups.reduce((s, g) => s + g.members.length, 0)
+// 后端分组返回 {id, title, count, members}；模板沿用 label/icon，这里做一次归一化
+const GROUP_META = {
+  friend: { label: '我的好友', icon: 'user' },
+  vet: { label: '我的兽医', icon: 'stethoscope' },
+  group: { label: '宠物社群', icon: 'chat' }
+}
+
+const conversations = ref([])
+const contactGroups = ref([])
+
+const contactCount = computed(() =>
+  contactGroups.value.reduce((s, g) => s + (g.members?.length || 0), 0)
+)
 
 const visibleConvs = computed(() => {
   const kw = q.value.trim().toLowerCase()
-  if (!kw) return conversations
-  return conversations.filter(
-    (c) => c.name.toLowerCase().includes(kw) || c.last.toLowerCase().includes(kw)
+  if (!kw) return conversations.value
+  return conversations.value.filter(
+    (c) =>
+      (c.name || '').toLowerCase().includes(kw) || (c.last || '').toLowerCase().includes(kw)
   )
 })
 
@@ -77,6 +91,21 @@ function kindLabel(k) {
 function initial(name) {
   return (name || '?').slice(0, 1)
 }
+
+onMounted(async () => {
+  try {
+    const [convs, contactRes] = await Promise.all([fetchConversations(), fetchContactGroups()])
+    conversations.value = convs || []
+    contactGroups.value = (contactRes?.groups || []).map((g) => ({
+      id: g.id,
+      label: GROUP_META[g.id]?.label || g.title || g.id,
+      icon: GROUP_META[g.id]?.icon || 'user',
+      members: g.members || []
+    }))
+  } catch (e) {
+    showToast(e?.message || '消息列表加载失败', { type: 'error' })
+  }
+})
 </script>
 
 <style scoped>

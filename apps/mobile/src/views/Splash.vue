@@ -40,7 +40,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandMark from '@/components/BrandMark.vue'
-import { isAuthed } from '@/data/ops'
+import { isAuthed } from '@/api/client'
 
 const router = useRouter()
 // 已登录直接进首页，未登录先引导登录（主流 App 的冷启动分流）

@@ -3,7 +3,11 @@
 ## 技术栈
 - app/：Vue 3 + Vite 5 + Vue Router（哈希路由，移动优先，440px 手机壳居中预览，面向 Capacitor 跨端打包）
 - admin/：管理端（公告、反馈与 app 端通过 localStorage 键共享：petwise_announcements / petwise_feedbacks）
-- 演示数据集中在 app/src/data/mock.js，用户产生数据与登录态在 data/ops.js（localStorage），接后端时整体替换
+- **数据层（2026-10-16 定稿）**：视图只从 `src/api/data.js`（数据门面）取数，它调 `src/api/index.js` 的真实接口并归一成原 mock 形状
+  - `src/data/ops.js` **已删除**（2026-10-16 清理，连同 mock.js/triage.js/useAsync.js/admin 的 data/ 目录）
+  - 静态配置在 `src/data/static.js`（294 行，从 1057 行 mock.js 抽出）：quickActions/tips/consultSeed/consultSuggestions/departments/consultModes/bodyParts/durations/severities/accompanyOptions/symptomGroups/triageRules/recognitionSamples/galleryPool
+  - 纯客户端能力在 `src/api/client.js`：短信每日频控、钱包流水、isAuthed
+  - 同步→异步套路：mock 常量改 `ref`，`onMounted` 里加载，computed 给安全空形状兜底
 
 ## 布局铁律（踩过的坑）
 - 外壳 .app-shell 必须用 height（100dvh）锁死而非 min-height；.app-main 必须有 min-height:0 —— 否则 flex 子项被内容撑高、整页滚动、底部 Dock 失效
@@ -16,12 +20,13 @@
 
 ## 共享实现约定（App 内）
 - 6 位验证码输入：components/CodeInput.vue（Login + Account 共用，勿再手写分格）
-- 短信发送频控：ops.js 的 smsSendCount/bumpSmsSend/SMS_DAILY_MAX（按日计数，键 petwise_sms_sent）
+- 短信发送频控：api/client.js 的 smsSendCount/bumpSmsSend/SMS_DAILY_MAX（按日+按号计数，键 petwise_sms_sent）
 - 修改密码弹层唯一实现在 Account.vue（Profile 的入口只做跳转）
 
 ## 认证
 - 路由 meta.public 放行（splash/login），其余被 beforeEach 拦截到 /login?redirect=
-- 登录态 key：petwise_auth；演示登录：任意 1[3-9]xxxxxxxxx 手机号 + 6 位验证码
+- 登录态 = JWT：petwise_access_token / petwise_refresh_token（api/token.js）；request.js 自动注入 Bearer，20002 时静默 refresh 重试一次
+- 演示登录：任意 1[3-9]xxxxxxxxx 手机号 + 验证码 **888888**（后端 PW_SMS_DEBUG=true）
 
 ## cv/ 目录约定（2026-10 去重后定稿）
 - 铁律：**每个能力只留一份实现**，狗/猫不允许出现结构相同、只有 import 不同的文件
@@ -36,8 +41,13 @@
 - dog / cat 的包名都是 `src`：pytest 必须分目录跑；同进程连续加载要清 sys.modules 缓存
 
 ## 验证方式
-- npx vite build 全量编译
-- 回归脚本（node 直跑）：.workbuddy/check-nav.cjs、check-auth.cjs（playwright-core + 无头 Chrome）
+- npx vite build 全量编译（mobile + admin 两个 app）
+- 接口冒烟：`.venv/Scripts/python.exe .workbuddy/smoke_api.py` / `smoke_admin.py`（需后端在 8080）
+- 浏览器 e2e（playwright-core 装在 `~/.workbuddy/binaries/node/workspace`，用本机 chrome）：
+  `node .workbuddy/e2e_check.cjs`（移动端 13 页+登录+问诊）、`e2e_admin.cjs`（管理端 8 页）、
+  `e2e_flows.cjs`（点赞/日程/聊天/识别/退出登录）、`e2e_layout.cjs`（dock 布局铁律）、
+  `e2e_preconsult.cjs`（7 步向导）
+- 注意：冒烟会消耗演示用户当日 AI 额度（3/日），问诊联调前先清 `ai_usage_daily` 当日记录
 - cv：cd cv/dog、cv/cat 分别 pytest；`python cv/.workbuddy/smoke_train.py` 合成数据全流程冒烟
 
 ## 设计体系（2026-10 定稿，源自趋势调研）
@@ -66,5 +76,13 @@
 - **首批真实接口**：登录/sms、users(me/preferences/blocked/balance/deactivate)、pets(CRUD+health)、schedule(CRUD+done+/home/reminders 跨宠物聚合)、announcements、feedback、breeds、consult(modes/departments/doctors)
 - **演示账号**：13800138000（昵称林小满，宠物 麻薯/豆豆），验证码 888888
 - **已知坑**：`errors.py` 的 `http_status` 原实现用 `dict.get(code, _HTTP_STATUS[code//10000*10000])`，因 get 的 default 参数会被**先求值**导致任何码都 KeyError —— 已改为先 get 再 `.get(segment, 500)` 兜底
-- **前端尚未接后端**：app 仍读 mock.js/localStorage（用户「前端暂这样」）；接后端时整体替换 data/ops.js 的网络层
+- **管理端全栈（2026-10-16 完成）**：`apps/admin` 8 视图全迁到真实接口（原 localStorage 清零）
+  - 后端 `app/api/routers/admin.py`（prefix `/admin`，AdminUser 依赖，非 admin 返 20004）：overview / 公告 CRUD / 反馈列表+处理 / 用户列表+改角色 / 问诊单 / 识别审核 / 举报审核 / 设置读写
+  - 新模型：`PostReport`（social.py，举报落库）、`Setting`（extra.py，key-value 设置，默认值在 admin.py `_DEFAULT_SETTINGS`）
+  - 管理员账号：**13900000000**（role=admin，验证码 888888）
+  - 管理端 dev 端口 **5174**（`/api` 代理同后端）；`.workbuddy/smoke_admin.py` 全绿含非 admin 拦截验证
+  - `/health`、`/health/ready` 故意不带 `/api/v1` 前缀（k8s 探针）
+- **前端已全量接后端（2026-10-16）**：23 个视图全部走真实接口；`data/ops.js` 已删除引用
+- **联调验证**：`.workbuddy/smoke_api.py`（登录 + 30+ 接口 + 写路径，失败项 0）；前端 dev 5173 经 /api 代理到 8080
+- **后端信封坑**：`paged()` 内部已包 `ok()`，**不可再套 ok()**（否则前端拿到信封而非 {list}，`r.list` undefined → .map 崩）；且 total/page/page_size 是关键字参数，位置传参会 500
 - **踩坑**：uv sync 因 hatchling 找不到打包目录报错 → pyproject 补 `[tool.hatch.build.targets.wheel] packages=["app"]`；`SMS_DEBUG` 必须定义在 Settings 里否则调试码不生效

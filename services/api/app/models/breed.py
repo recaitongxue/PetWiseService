@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DECIMAL, JSON, String, Text, func
+from sqlalchemy import DECIMAL, JSON, BigInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base

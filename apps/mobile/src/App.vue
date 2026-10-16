@@ -33,7 +33,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from '@/components/AppNav.vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import ToastHost from '@/components/ToastHost.vue'
+import ToastHost from '@shared/ToastHost.vue'
 
 const route = useRoute()
 const isBare = computed(() => route.meta.bare === true)

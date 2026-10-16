@@ -146,13 +146,25 @@ def ai_plan(body: dict, user: CurrentUser, db: DbSession) -> dict:
     def plus(days):
         return (today + datetime.timedelta(days=days)).isoformat()
 
+    vaccine_title = (
+        f"年度疫苗（{pet.next_vaccine}）" if pet.next_vaccine
+        else ("年度疫苗（犬六联+狂犬）" if is_dog else "年度疫苗（猫三联）")
+    )
     items = [
-        {"type": "deworm", "title": "体外驱虫", "date": plus(7), "cycle": "每月一次", "note": "滴颈后皮肤，用药后 48 小时不洗澡"},
-        {"type": "deworm", "title": "体内驱虫", "date": plus(14), "cycle": "每季度一次", "note": "空腹喂服，幼宠剂量按体重换算"},
-        {"type": "vaccine", "title": pet.next_vaccine and f"年度疫苗（{pet.next_vaccine}）" or (is_dog and "年度疫苗（犬六联+狂犬）" or "年度疫苗（猫三联）"), "date": pet.next_vaccine or plus(30), "cycle": "每年一次", "note": "接种前一周完成驱虫，接种后观察 30 分钟"},
-        {"type": "check", "title": kitten and "幼宠基础体检" or "年度健康体检", "date": plus(kitten and 21 or 60), "cycle": "每年一次", "note": "血常规+生化+便检，老年宠建议加心脏评估"},
-        {"type": "groom", "title": is_dog and "洗澡与吹干护理" or "梳毛与指甲护理", "date": plus(10), "cycle": is_dog and "每两周一次" or "每周一次", "note": is_dog and "垂耳犬需检查耳道是否进水" or "换季期每日梳毛减少毛球症"},
-        {"type": "weight", "title": "体重复测", "date": plus(3), "cycle": "每月一次", "note": "同一时间空腹称重，记录到健康档案"},
+        {"type": "deworm", "title": "体外驱虫", "date": plus(7), "cycle": "每月一次",
+         "note": "滴颈后皮肤，用药后 48 小时不洗澡"},
+        {"type": "deworm", "title": "体内驱虫", "date": plus(14), "cycle": "每季度一次",
+         "note": "空腹喂服，幼宠剂量按体重换算"},
+        {"type": "vaccine", "title": vaccine_title, "date": pet.next_vaccine or plus(30),
+         "cycle": "每年一次", "note": "接种前一周完成驱虫，接种后观察 30 分钟"},
+        {"type": "check", "title": "幼宠基础体检" if kitten else "年度健康体检",
+         "date": plus(21 if kitten else 60), "cycle": "每年一次",
+         "note": "血常规+生化+便检，老年宠建议加心脏评估"},
+        {"type": "groom", "title": "洗澡与吹干护理" if is_dog else "梳毛与指甲护理",
+         "date": plus(10), "cycle": "每两周一次" if is_dog else "每周一次",
+         "note": "垂耳犬需检查耳道是否进水" if is_dog else "换季期每日梳毛减少毛球症"},
+        {"type": "weight", "title": "体重复测", "date": plus(3), "cycle": "每月一次",
+         "note": "同一时间空腹称重，记录到健康档案"},
     ]
     return ok(
         {
@@ -243,33 +255,3 @@ def delete_memo(memo_id: int, user: CurrentUser, db: DbSession) -> dict:
     db.delete(m)
     db.commit()
     return ok({"deleted": True})
-
-
-@router.get("/home/reminders", summary="首页今日提醒聚合（跨全部宠物）")
-def home_reminders(user: CurrentUser, db: DbSession) -> dict:
-    uid = _uid(user)
-    now = datetime.datetime.now()
-    today_start = datetime.datetime(now.year, now.month, now.day)
-    today_end = today_start + datetime.timedelta(days=1)
-
-    all_items = db.query(ScheduleItem).filter(ScheduleItem.owner_id == uid).all()
-    overdue = sum(1 for i in all_items if not i.done and i.due_at < now)
-    today = sum(1 for i in all_items if today_start <= i.due_at < today_end)
-    done = sum(1 for i in all_items if i.done)
-    pending = sum(1 for i in all_items if not i.done)
-
-    pets = {p.id: p for p in db.query(Pet).filter(Pet.owner_id == uid).all()}
-    upcoming = (
-        db.query(ScheduleItem)
-        .filter(ScheduleItem.owner_id == uid, ScheduleItem.done.is_(False))
-        .order_by(ScheduleItem.due_at.asc())
-        .limit(10)
-        .all()
-    )
-    items = [public_schedule(it, pets.get(it.pet_id)) for it in upcoming]
-    return ok(
-        {
-            "stats": {"overdue": overdue, "today": today, "done": done, "pending": pending},
-            "items": items,
-        }
-    )

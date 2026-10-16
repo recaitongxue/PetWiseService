@@ -6,7 +6,7 @@ Token 载荷与契约《2. 鉴权方案》一致；用户类型用 role 区分�
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -34,8 +34,8 @@ def create_access_token(user_id: str, role: str = "user") -> tuple[str, int]:
         "sub": user_id,
         "role": role,
         "type": "access",
-        "exp": datetime.now(timezone.utc) + timedelta(seconds=expires_in),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(seconds=expires_in),
+        "iat": datetime.now(UTC),
     }
     token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return token, expires_in
@@ -47,8 +47,8 @@ def create_refresh_token(user_id: str) -> tuple[str, int]:
     payload = {
         "sub": user_id,
         "type": "refresh",
-        "exp": datetime.now(timezone.utc) + timedelta(seconds=expires_in),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(seconds=expires_in),
+        "iat": datetime.now(UTC),
     }
     token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return token, expires_in

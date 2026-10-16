@@ -1,10 +1,11 @@
-"""医生表：在线问诊可选的医生与科室。"""
+"""医生表：在线问诊可选的医生与科室；医生评价表。"""
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DECIMAL, JSON, String, Text, func
+from sqlalchemy import DECIMAL, JSON, BigInteger, Boolean, DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -31,3 +32,19 @@ class Doctor(Base):
     intro: Mapped[str | None] = mapped_column(Text, nullable=True)
     certs: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     online: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class DoctorReview(Base):
+    """问诊评价：用户在问诊单结束后提交，落库后展示在医生详情页。"""
+
+    __tablename__ = "doctor_reviews"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    doctor_id: Mapped[str] = mapped_column(String(32), index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    user_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    order_id: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True)
+    score: Mapped[int] = mapped_column(BigInteger, default=5)  # 1-5 星
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

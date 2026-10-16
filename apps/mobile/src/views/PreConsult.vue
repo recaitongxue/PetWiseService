@@ -177,14 +177,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { pets, bodyParts, durations, severities, accompanyOptions } from '@/data/mock'
-import { scoreTriage } from '@/data/triage'
-import { saveReport, recordsOf } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { bodyParts, durations, severities, accompanyOptions } from '@/data/static'
+import { fetchPets, fetchHealthRecords, preConsult } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 
@@ -199,7 +198,8 @@ const steps = [
 ]
 
 const stepIndex = ref(0)
-const petId = ref(pets[0].id)
+const pets = ref([])
+const petId = ref('')
 const partId = ref('')
 const symptomIds = ref([])
 const durationId = ref('')
@@ -212,12 +212,34 @@ const curPart = computed(() => bodyParts.find((b) => b.id === partId.value) || {
 const redFlags = computed(() => curPart.value.symptoms.filter((s) => s.redFlag && symptomIds.value.includes(s.id)))
 
 // 当前宠物的近期健康记录（供问卷导入）
-const petRecords = computed(() =>
-  recordsOf(petId.value)
-    .slice()
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
-    .slice(0, 5)
-)
+const petRecords = ref([])
+
+async function loadRecords(id) {
+  if (!id) {
+    petRecords.value = []
+    return
+  }
+  try {
+    const list = (await fetchHealthRecords(id)) || []
+    petRecords.value = list.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5)
+  } catch {
+    petRecords.value = []
+  }
+}
+
+watch(petId, (id) => loadRecords(id))
+
+onMounted(async () => {
+  try {
+    pets.value = (await fetchPets()) || []
+  } catch (e) {
+    pets.value = []
+    showToast(e?.message || '宠物列表加载失败', { type: 'error' })
+  }
+  petId.value = pets.value[0] ? pets.value[0].id : ''
+  await loadRecords(petId.value)
+})
+
 const imported = ref([])
 
 function recordLabel(kind) {
@@ -263,55 +285,50 @@ function prevOrBack() {
   else router.back()
 }
 
-function next() {
+async function next() {
   if (!canNext.value) return
   if (stepIndex.value < steps.length - 1) {
     stepIndex.value++
     return
   }
 
-  // 最后一步：跑分诊引擎 → 生成报告
-  const answers = {
-    petId: petId.value,
-    partId: partId.value,
-    symptomIds: symptomIds.value.slice(),
-    durationId: durationId.value,
-    severityId: severityId.value,
-    accompanyIds: accompanyIds.value.slice()
-  }
-  const triage = scoreTriage(answers)
-  const pet = pets.find((p) => p.id === petId.value)
-  const partLabel = (bodyParts.find((b) => b.id === partId.value) || {}).label || ''
+  // 最后一步：提交结构化问诊 → 后端跑分诊并落报告，reportId 用于跳转报告页
+  const pet = pets.value.find((p) => p.id === petId.value)
+  const part = bodyParts.find((b) => b.id === partId.value)
   const symptomLabels = curPart.value.symptoms
     .filter((s) => symptomIds.value.includes(s.id))
     .map((s) => s.label)
 
-  const report = saveReport({
-    type: 'ai',
-    petId: petId.value,
-    petName: pet ? pet.name : '',
-    title: `${pet ? pet.name : ''} · ${symptomLabels[0] || partLabel}`,
-    preview: `${triage.label} — ${triage.short}`,
-    chief: {
-      partLabel,
+  try {
+    const res = await preConsult({
+      petId: petId.value,
+      partId: partId.value,
+      symptomIds: symptomIds.value.slice(),
+      durationId: durationId.value,
+      severityId: severityId.value,
+      accompanyIds: accompanyIds.value.slice(),
+      note: note.value.trim(),
+      photoCount: photos.value,
+      // 分诊按 id 计权，同时带上可读标签，报告里尽量展示中文而非原始 id
+      petName: pet ? pet.name : '',
+      partLabel: part ? part.label : '',
       symptomLabels,
       durationLabel: (durations.find((d) => d.id === durationId.value) || {}).label || '',
       severityLabel: (severities.find((s) => s.id === severityId.value) || {}).label || '',
       accompanyLabels: accompanyOptions
         .filter((a) => accompanyIds.value.includes(a.id))
         .map((a) => a.label),
-      note: note.value.trim(),
-      photos: photos.value,
-      // 从档案导入的近期变化：报告里形成时间线
       records: imported.value
         .map((id) => petRecords.value.find((r) => r.id === id))
         .filter(Boolean)
         .map((r) => ({ kind: r.kind, label: recordLabel(r.kind), value: r.value, date: r.date, note: r.note || '' }))
-    },
-    triage
-  })
-
-  router.replace(`/report/${report.id}`)
+    })
+    const reportId = res && res.reportId
+    if (!reportId) throw new Error('报告生成失败')
+    router.replace(`/report/${reportId}`)
+  } catch (e) {
+    showToast(e?.message || '提交失败，请稍后重试', { type: 'error' })
+  }
 }
 
 function toER() {

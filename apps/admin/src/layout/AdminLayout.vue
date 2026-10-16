@@ -30,8 +30,8 @@
         <div class="me">
           <span class="me-ava">运</span>
           <div class="me-info">
-            <b>{{ admin.name }}</b>
-            <span>{{ admin.role }}</span>
+            <b>{{ me.nickname || '管理员' }}</b>
+            <span>{{ me.role === 'admin' ? '超级管理员' : '普通账号' }}</span>
           </div>
         </div>
         <button class="logout" type="button" @click="logout">
@@ -70,21 +70,50 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { admin } from '@/data/admin'
-import { loadFeedbacks } from '@/data/ops'
+import { adminApi, authApi } from '@/api'
+import { clearAuth } from '@shared/token'
 
 const route = useRoute()
 const router = useRouter()
 
-const fbOpen = loadFeedbacks().filter((x) => x.state === 'open').length
+// 当前登录管理员（真实账号信息，替代原演示写死的「平台运营」）
+const me = ref({})
+
+onMounted(async () => {
+  try {
+    me.value = await authApi.me()
+  } catch {
+    me.value = {}
+  }
+})
+
+// 侧边栏红点：待处理反馈数与待审核举报数，均从后端取（失败退化为 0）
+const fbOpen = ref(0)
+const reportOpen = ref(0)
+
+onMounted(async () => {
+  try {
+    const fb = await adminApi.feedbacks('pending')
+    fbOpen.value = fb?.total ?? (fb?.list || []).length
+  } catch {
+    fbOpen.value = 0
+  }
+  try {
+    const rp = await adminApi.reports('pending')
+    reportOpen.value = rp?.total ?? (rp?.list || []).length
+  } catch {
+    reportOpen.value = 0
+  }
+})
 
 const menus = [
   { to: '/dashboard', label: '数据看板', icon: 'chart' },
   { to: '/users', label: '用户管理', icon: 'users' },
   { to: '/records', label: '识别记录', icon: 'camera' },
-  { to: '/moderation', label: '内容审核', icon: 'shield', badge: 2 },
+  { to: '/moderation', label: '内容审核', icon: 'shield', badge: reportOpen || null },
   { to: '/consults', label: '问诊记录', icon: 'stethoscope' },
   { to: '/announce', label: '公告管理', icon: 'bell' },
   { to: '/feedback', label: '用户反馈', icon: 'comment', badge: fbOpen || null },
@@ -95,8 +124,14 @@ function isActive(m) {
   return route.path.startsWith(m.to)
 }
 
-function logout() {
-  localStorage.removeItem('petwise_admin_auth')
+async function logout() {
+  // 通知后端登出（无状态，失败也不影响前端清理），再丢弃本地令牌
+  try {
+    await authApi.logout()
+  } catch {
+    /* 忽略网络错误 */
+  }
+  clearAuth()
   router.replace('/login')
 }
 </script>

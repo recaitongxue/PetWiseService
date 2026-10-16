@@ -95,10 +95,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { departments, doctors, consultModes } from '@/data/mock'
+import { departments, consultModes } from '@/data/static'
+import { fetchDoctors } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,21 +112,35 @@ const dept = ref(route.query.dept || 'all')
 const onlyOnline = ref(false)
 const caseOpen = ref(false)
 const summary = ref(null)
+const doctors = ref([])
+
+async function loadDoctors() {
+  try {
+    doctors.value = (await fetchDoctors({ department: dept.value })) || []
+  } catch (e) {
+    doctors.value = []
+    showToast(e?.message || '医生列表加载失败', { type: 'error' })
+  }
+}
 
 // 读取问诊页写入的病例摘要（一次性传递，读完即保留在内存）
-onMounted(() => {
+onMounted(async () => {
   try {
     const raw = sessionStorage.getItem('petwise_case_summary')
     if (raw) summary.value = JSON.parse(raw)
   } catch {
     summary.value = null
   }
+  await loadDoctors()
 })
+
+// 切换科室时向后端重新拉取该科室医生
+watch(dept, loadDoctors)
 
 const minPrice = Math.min(...consultModes.map((m) => m.price))
 
 const list = computed(() => {
-  let out = doctors
+  let out = doctors.value
   if (dept.value !== 'all') out = out.filter((d) => d.dept === dept.value)
   if (onlyOnline.value) out = out.filter((d) => d.online)
   // 在线优先，其次评分高、响应快

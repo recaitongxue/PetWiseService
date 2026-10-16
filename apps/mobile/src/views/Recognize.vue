@@ -189,43 +189,76 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetIllustration from '@/components/PetIllustration.vue'
-import { recognitionSamples, breedLibrary } from '@/data/mock'
-import { recognitionHistory, saveRecognition, correctRecognition } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { recognitionSamples } from '@/data/static'
+import {
+  fetchBreedLibrary, fetchBreed, fetchRecognitionHistory, recognizeImage, correctRecognition
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const scanning = ref(false)
 const result = ref(null)
 const cursor = ref(0)
 const picked = ref(null)
 const fileInput = ref(null)
-const history = ref(recognitionHistory())
+const history = ref([])
 const correcting = ref(false)
 const fixKw = ref('')
-const savedId = ref(null) // 本次结果对应的记录 id（未保存时为 null）
+const savedId = ref(null) // 本次结果对应的记录 id（上传识别即入库时为已有 id）
+
+const breeds = ref([])
+const breedOf = ref(null)
 
 // 识别标题 → 品种库 id（识别结果一键跳转百科）
 const breedPath = computed(() => {
   if (!result.value) return ''
-  const hit = breedLibrary.find((b) => b.name === result.value.title)
-  return hit ? hit.id : result.value.title
-})
-
-// top1 品种档案（识别结果与百科联动的数据基础）
-const breedOf = computed(() => {
-  if (!result.value) return null
-  return breedLibrary.find((b) => b.name === result.value.title) || null
+  const hit = breeds.value.find((b) => b.name === result.value.title)
+  return hit ? hit.id : (result.value.breedId ?? result.value.title)
 })
 
 // 手动纠正候选：同物种品种库 + 搜索
 const fixCandidates = computed(() => {
   if (!result.value) return []
   const kw = fixKw.value.trim()
-  return breedLibrary.filter(
-    (b) => b.species === result.value.species && (!kw || b.name.includes(kw) || b.origin.includes(kw))
+  return breeds.value.filter(
+    (b) => b.species === result.value.species && (!kw || b.name.includes(kw) || (b.origin || '').includes(kw))
   )
+})
+
+// top1 品种档案：识别接口已返回简介则直接用，否则按 breedId 拉详情
+watch(result, async (res) => {
+  if (!res) {
+    breedOf.value = null
+    return
+  }
+  if (res.breedProfile) {
+    breedOf.value = res.breedProfile
+    return
+  }
+  if (res.breedId) {
+    try {
+      breedOf.value = await fetchBreed(res.breedId)
+      return
+    } catch {
+      /* 退化到列表匹配 */
+    }
+  }
+  breedOf.value = breeds.value.find((b) => b.name === res.title) || null
+})
+
+onMounted(async () => {
+  try {
+    breeds.value = await fetchBreedLibrary()
+  } catch {
+    breeds.value = []
+  }
+  try {
+    history.value = await fetchRecognitionHistory()
+  } catch {
+    history.value = []
+  }
 })
 
 function formatTime(iso) {
@@ -268,13 +301,27 @@ function openAlbum() {
   if (scanning.value) return
   fileInput.value?.click()
 }
-function onFile(e) {
+async function onFile(e) {
   const f = e.target.files?.[0]
+  e.target.value = ''
   if (!f) return
   if (picked.value) URL.revokeObjectURL(picked.value)
   picked.value = URL.createObjectURL(f)
-  runScan()
-  e.target.value = ''
+
+  // 真实调用后端识别：上传即入库，返回的 id 可直接用于纠正
+  scanning.value = true
+  result.value = null
+  try {
+    const fd = new FormData()
+    fd.append('file', f)
+    const r = await recognizeImage(fd)
+    result.value = { ...r, source: 'upload' }
+    savedId.value = r.id
+  } catch (err) {
+    showToast(err?.message || '识别失败，请重试', { type: 'error' })
+  } finally {
+    scanning.value = false
+  }
 }
 
 function loadSample(i) {
@@ -283,36 +330,40 @@ function loadSample(i) {
   finishWith(i)
 }
 
-// 保存识别记录（持久化）
-function saveRecord() {
+// 保存识别记录：演示样本未落库，用一次无图识别把结果写入服务端
+async function saveRecord() {
   if (!result.value) return
-  const rec = saveRecognition({
-    species: result.value.species,
-    predicted: result.value.title,
-    confidence: result.value.confidence,
-    alternatives: result.value.alternatives,
-    imageRef: result.value.source
-  })
-  savedId.value = rec.id
-  history.value = recognitionHistory()
-  showToast('已保存到识别记录', { type: 'success' })
+  try {
+    const fd = new FormData()
+    if (result.value.species) fd.append('species', result.value.species)
+    const rec = await recognizeImage(fd)
+    savedId.value = rec.id
+    history.value = await fetchRecognitionHistory()
+    showToast('已保存到识别记录', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '保存失败', { type: 'error' })
+  }
 }
 
 // 打开纠正弹层：未保存过的结果先自动保存
-function openFix() {
+async function openFix() {
   if (!result.value) return
-  if (!savedId.value) saveRecord()
+  if (!savedId.value) await saveRecord()
   fixKw.value = ''
   correcting.value = true
 }
 
 // 提交纠正 → 进入管理端审核队列
-function applyFix(breedName) {
+async function applyFix(breedName) {
   if (!savedId.value) return
-  correctRecognition(savedId.value, breedName)
-  history.value = recognitionHistory()
-  correcting.value = false
-  showToast(`已提交「${breedName}」，等待管理端审核`, { type: 'success' })
+  try {
+    await correctRecognition(savedId.value, breedName)
+    history.value = await fetchRecognitionHistory()
+    correcting.value = false
+    showToast(`已提交「${breedName}」，等待管理端审核`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '纠正提交失败', { type: 'error' })
+  }
 }
 </script>
 

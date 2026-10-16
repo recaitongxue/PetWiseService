@@ -28,7 +28,7 @@
       </label>
       <div class="form-actions">
         <button class="btn sm ghost" @click="editing = false">取消</button>
-        <button class="btn sm primary" :disabled="!form.title || !form.body" @click="save">发布公告</button>
+        <button class="btn sm primary" :disabled="saving || !form.title || !form.body" @click="save">发布公告</button>
       </div>
     </div>
 
@@ -39,13 +39,14 @@
           <div class="ann-head">
             <b>{{ a.title }}</b>
             <span class="badge" :class="levelBadge(a.level)">{{ levelLabel(a.level) }}</span>
+            <span v-if="a.pinned" class="badge neutral">置顶</span>
             <span class="date num">{{ a.date }}</span>
           </div>
-          <p class="ann-text">{{ a.body }}</p>
+          <p class="ann-text">{{ a.content }}</p>
         </div>
         <div class="ann-actions">
-          <button class="btn sm" :class="a.active ? 'ghost' : 'primary'" @click="toggle(a)">
-            {{ a.active ? '下线' : '上线' }}
+          <button class="btn sm" :class="a.pinned ? 'ghost' : 'primary'" @click="toggle(a)">
+            {{ a.pinned ? '取消置顶' : '置顶' }}
           </button>
           <button class="btn sm danger" @click="remove(a)"><AppIcon name="x" :size="13" /></button>
         </div>
@@ -56,49 +57,79 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { loadAnnouncements, saveAnnouncements } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { adminApi } from '@/api'
+import { showToast } from '@shared/toast'
 
-const rows = ref(loadAnnouncements())
+const rows = ref([])
 const editing = ref(false)
-const form = reactive({ id: '', title: '', body: '', level: 'event', date: '', active: true })
+const saving = ref(false)
+const form = reactive({ id: '', title: '', body: '', level: 'event', pinned: false })
 
-const activeCount = computed(() => rows.value.filter((a) => a.active).length)
+// 后端公告没有「下线」标志，列表返回的都是已发布公告
+const activeCount = computed(() => rows.value.length)
 
-function persist() {
-  saveAnnouncements(rows.value.map((a) => ({ ...a })))
+async function load() {
+  try {
+    // 分页信封：数组在 res.list
+    const res = await adminApi.announcements({ page: 1, page_size: 50 })
+    rows.value = res?.list ?? []
+  } catch (e) {
+    showToast(e?.message || '公告加载失败', { type: 'warn' })
+  }
 }
+onMounted(load)
 
 function openForm() {
-  Object.assign(form, { id: '', title: '', body: '', level: 'event', date: '', active: true })
+  Object.assign(form, { id: '', title: '', body: '', level: 'event', pinned: false })
   editing.value = true
 }
 
-function save() {
-  const today = new Date().toISOString().slice(0, 10)
-  if (form.id) {
-    const hit = rows.value.find((a) => a.id === form.id)
-    Object.assign(hit, { title: form.title, body: form.body, level: form.level })
-  } else {
-    rows.value.unshift({ id: 'a' + Date.now(), title: form.title, body: form.body, level: form.level, date: today, active: true })
+async function save() {
+  if (!form.title.trim() || !form.body.trim()) return
+  saving.value = true
+  try {
+    const payload = {
+      title: form.title.trim(),
+      content: form.body.trim(),
+      level: form.level,
+      pinned: form.pinned
+    }
+    if (form.id) {
+      await adminApi.updateAnnouncement(form.id, payload)
+    } else {
+      await adminApi.createAnnouncement(payload)
+    }
+    editing.value = false
+    showToast('公告已发布，App 首页将同步展示', { type: 'success' })
+    await load()
+  } catch (e) {
+    showToast(e?.message || '公告保存失败', { type: 'warn' })
+  } finally {
+    saving.value = false
   }
-  persist()
-  editing.value = false
-  showToast('公告已发布，App 首页将同步展示', { type: 'success' })
 }
 
-function toggle(a) {
-  a.active = !a.active
-  persist()
-  showToast(a.active ? '公告已上线' : '公告已下线，App 端不再展示')
+async function toggle(a) {
+  const pinned = !a.pinned
+  try {
+    await adminApi.updateAnnouncement(a.id, { pinned })
+    showToast(pinned ? '公告已置顶' : '公告已取消置顶')
+    await load()
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'warn' })
+  }
 }
 
-function remove(a) {
-  rows.value = rows.value.filter((x) => x.id !== a.id)
-  persist()
-  showToast('公告已删除')
+async function remove(a) {
+  try {
+    await adminApi.removeAnnouncement(a.id)
+    showToast('公告已删除')
+    await load()
+  } catch (e) {
+    showToast(e?.message || '删除失败', { type: 'warn' })
+  }
 }
 
 function levelBadge(l) {

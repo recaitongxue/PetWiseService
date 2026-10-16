@@ -81,7 +81,7 @@
         <router-link to="/favorites" class="menu-row">
           <span class="menu-ic peach"><AppIcon name="bookmark" :size="20" /></span>
           <span class="menu-label">我的收藏</span>
-          <span class="menu-badge num">{{ favorites.length + customFavCount }}</span>
+          <span class="menu-badge num">{{ favorites.length }}</span>
           <AppIcon name="back" :size="16" class="menu-arrow" />
         </router-link>
         <router-link to="/schedule" class="menu-row">
@@ -160,14 +160,15 @@
             >充 {{ amt }}</button>
           </div>
           <h4 class="w-h">交易明细</h4>
-          <div v-if="walletInfo.txns.length" class="w-list">
-            <div v-for="t in walletInfo.txns" :key="t.id" class="w-row">
-              <span class="w-ic" :class="t.type"><AppIcon :name="t.type === 'recharge' ? 'plus' : 'back'" :size="14" /></span>
+          <div v-if="walletLoading" class="w-empty">加载中…</div>
+          <div v-else-if="walletInfo.list.length" class="w-list">
+            <div v-for="t in walletInfo.list" :key="t.id" class="w-row">
+              <span class="w-ic" :class="t.type"><AppIcon :name="t.type === 'topup' ? 'plus' : 'back'" :size="14" /></span>
               <div class="w-row-body">
                 <b>{{ t.note }}</b>
                 <span class="num">{{ t.time }}</span>
               </div>
-              <span class="w-amt-num num" :class="t.type">{{ t.type === 'recharge' ? '+' : '-' }}{{ t.amount.toFixed(2) }}</span>
+              <span class="w-amt-num num" :class="t.type">{{ t.type === 'topup' ? '+' : '-' }}{{ Number(t.amount).toFixed(2) }}</span>
             </div>
           </div>
           <p v-else class="w-empty">暂无交易记录</p>
@@ -199,60 +200,126 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
 import { useRouter } from 'vue-router'
-import { user, pets, consultRecords, favorites } from '@/data/mock'
-import { submitFeedback, logout, getAuth, wallet, walletTransact, customFavorites } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import {
+  fetchUser, fetchPets, fetchConsultRecords, fetchFavorites,
+  submitFeedback, logoutUser, updateProfile,
+  fetchWallet, topupWallet, withdrawWallet
+} from '@/api/data'
+import { getCachedUser } from '@/api/client'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 
-/* ---------- 钱包 ---------- */
+const EMPTY_USER = {
+  name: '', handle: '', initials: '', bio: '', followers: 0, following: 0, balance: 0, phone: ''
+}
+
+const user = ref({ ...EMPTY_USER })
+const pets = ref([])
+const consultRecords = ref([])
+const favorites = ref([])
+
+onMounted(async () => {
+  try {
+    const [u, ps, recs, favs] = await Promise.all([
+      fetchUser(),
+      fetchPets(),
+      fetchConsultRecords(),
+      fetchFavorites()
+    ])
+    user.value = u || { ...EMPTY_USER }
+    pets.value = ps || []
+    consultRecords.value = recs || []
+    favorites.value = favs || []
+  } catch (e) {
+    showToast(e?.message || '个人资料加载失败', { type: 'error' })
+  }
+})
+
+/* ---------- 钱包（真实后端：余额 + 流水，充值/提现均落库对账） ---------- */
 
 const walletOpen = ref(false)
-const walletInfo = ref(wallet())
+const walletLoading = ref(false)
+const walletInfo = ref({ balance: 0, list: [], total: 0 })
 const rechargeAmounts = [30, 50, 100, 200]
 
-function openWallet() {
-  walletInfo.value = wallet()
+async function loadWallet() {
+  walletLoading.value = true
+  try {
+    const w = await fetchWallet()
+    walletInfo.value = {
+      balance: Number(w?.balance) || 0,
+      list: w?.list || [],
+      total: w?.total || 0
+    }
+  } catch (e) {
+    showToast(e?.message || '钱包加载失败', { type: 'error' })
+  } finally {
+    walletLoading.value = false
+  }
+}
+
+async function openWallet() {
   walletOpen.value = true
+  await loadWallet()
 }
-function recharge(amt) {
-  walletInfo.value = walletTransact(amt, '余额充值')
-  showToast(`充值 ¥${amt} 成功`, { type: 'success' })
+
+async function recharge(amt) {
+  try {
+    const res = await topupWallet({ amount: amt, note: '余额充值' })
+    walletInfo.value.balance = Number(res?.balance) || 0
+    await loadWallet()
+    showToast(`充值 ¥${amt} 成功`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '充值失败', { type: 'error' })
+  }
 }
-function withdraw() {
-  if (walletInfo.value.balance <= 0) {
+
+async function withdraw() {
+  const all = walletInfo.value.balance
+  if (all <= 0) {
     showToast('余额不足，先充一笔', { type: 'info' })
     return
   }
-  const all = walletInfo.value.balance
-  walletInfo.value = walletTransact(-all, '提现到微信')
-  showToast(`已提现 ¥${all.toFixed(2)} 到微信`, { type: 'success' })
+  try {
+    const res = await withdrawWallet({ amount: all, note: '提现到微信' })
+    walletInfo.value.balance = Number(res?.balance) || 0
+    await loadWallet()
+    showToast(`已提现 ¥${all.toFixed(2)} 到微信`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '提现失败', { type: 'error' })
+  }
 }
 
 /* ---------- 编辑资料 ---------- */
 
 const editOpen = ref(false)
-const editForm = reactive({ name: user.name, bio: user.bio })
+const editForm = reactive({ name: '', bio: '' })
 
 function openEdit() {
-  editForm.name = user.name
-  editForm.bio = user.bio
+  editForm.name = user.value.name || ''
+  editForm.bio = user.value.bio || ''
   editOpen.value = true
 }
-function submitEdit() {
-  user.name = editForm.name.trim() || user.name
-  user.bio = editForm.bio.trim()
-  editOpen.value = false
-  showToast('资料已更新', { type: 'success' })
+async function submitEdit() {
+  const name = editForm.name.trim()
+  if (!name) return
+  const bio = editForm.bio.trim()
+  try {
+    const updated = await updateProfile({ nickname: name, bio })
+    user.value = updated || { ...user.value, name, bio }
+    editOpen.value = false
+    showToast('资料已更新', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '资料更新失败', { type: 'error' })
+  }
 }
 
 /* ---------- 清除缓存 ---------- */
-
-const customFavCount = computed(() => customFavorites().length)
 
 const cacheSize = computed(() => {
   let bytes = 0
@@ -289,26 +356,31 @@ const fbTypes = [
 ]
 
 function sendFeedback() {
-  if (!fbText.value.trim()) return
-  submitFeedback({ user: user.name, type: fbType.value, text: fbText.value.trim() })
-  fbText.value = ''
-  fbOpen.value = false
-  showToast('反馈已提交，感谢你的建议', { type: 'success' })
+  const text = fbText.value.trim()
+  if (!text) return
+  submitFeedback({ type: fbType.value, text, contact: user.value.phone || undefined })
+    .then(() => {
+      fbText.value = ''
+      fbOpen.value = false
+      showToast('反馈已提交，感谢你的建议', { type: 'success' })
+    })
+    .catch((e) => showToast(e?.message || '反馈提交失败', { type: 'error' }))
 }
 
 function aboutPetwise() {
   showToast('Petwise v0.1 · 计算机视觉 × 大模型', { type: 'info' })
 }
 
-// 用户卡展示当前登录手机号（脱敏）
-const authPhone = getAuth()?.phone || ''
-const maskedPhone = authPhone
-  ? `${authPhone.slice(0, 3)}****${authPhone.slice(-4)}`
-  : user.handle
+// 用户卡展示当前登录手机号（脱敏）：优先取后端资料，其次本地缓存
+const cachedPhone = ref(getCachedUser()?.phone || '')
+const maskedPhone = computed(() => {
+  const p = user.value.phone || cachedPhone.value
+  return p ? `${p.slice(0, 3)}****${p.slice(-4)}` : user.value.handle || ''
+})
 
 // 退出登录：清登录态后回到登录页，并禁止返回上一个已登录页面
-function onLogout() {
-  logout()
+async function onLogout() {
+  await logoutUser()
   showToast('已退出登录')
   router.replace('/login')
 }

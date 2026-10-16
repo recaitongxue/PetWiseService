@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { isAuthed } from '@/data/ops'
+import { isAuthed } from '@/api/client'
 
 // 哈希路由：便于静态托管与 Capacitor 打包（file:// 也可运行）
 const routes = [

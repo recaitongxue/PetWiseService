@@ -39,12 +39,6 @@
           <span class="row-value">已设置</span>
           <AppIcon name="back" :size="15" class="row-arrow" />
         </button>
-        <button class="row" type="button" @click="showToast('演示环境：实名认证信息已同步', { type: 'info' })">
-          <span class="row-ic ink"><AppIcon name="verified" :size="18" /></span>
-          <span class="row-label">实名认证</span>
-          <span class="row-value ok">已认证</span>
-          <AppIcon name="back" :size="15" class="row-arrow" />
-        </button>
       </div>
     </section>
 
@@ -102,37 +96,20 @@
       <p class="group-note">关闭个性化推荐后，社区内容将按热度而非你的兴趣展示</p>
     </section>
 
-    <!-- 登录设备管理 -->
-    <section class="group" v-reveal="{ delay: 190 }">
-      <h2 class="group-t">登录设备管理</h2>
-      <div class="rows">
-        <div v-for="d in devices" :key="d.id" class="row device">
-          <span class="row-ic" :class="d.current ? 'ok' : 'sand'"><AppIcon name="signal" :size="18" /></span>
-          <span class="row-label">
-            {{ d.name }}
-            <small class="device-where">{{ d.where }} · {{ d.last }}</small>
-          </span>
-          <span v-if="d.current" class="row-value ok">当前设备</span>
-          <button v-else class="device-out" type="button" @click="kickDevice(d)">下线</button>
-        </div>
-      </div>
-      <p class="group-note">发现陌生设备请及时下线并修改密码</p>
-    </section>
-
     <!-- 危险区：注销账号（主流 App 均置于设置末端，红色警示） -->
     <section class="group danger" v-reveal="{ delay: 220 }">
       <div class="rows">
         <button class="row danger-row" type="button" @click="delStep = 1">
           <span class="row-ic danger"><AppIcon name="alert" :size="18" /></span>
           <span class="row-label">注销账号</span>
-          <span class="row-value">冷静期 7 天</span>
+          <span class="row-value">数据不可恢复</span>
           <AppIcon name="back" :size="15" class="row-arrow" />
         </button>
       </div>
-      <p class="group-note">注销后账号数据将进入 7 天冷静期，期间登录可随时撤销</p>
+      <p class="group-note">注销将清空全部个人数据且不可恢复，请谨慎操作</p>
     </section>
 
-    <p class="version">Petwise v0.1 · 账号数据仅存储于本机（演示环境）</p>
+    <p class="version">Petwise v1.0 · 账号数据存储于服务端，注销后不可恢复</p>
 
     <!-- ================= 弹层：更换手机号 ================= -->
     <transition name="sheet">
@@ -231,7 +208,6 @@
               <span class="bl-ava">{{ u.name.slice(0, 1) }}</span>
               <div class="bl-info">
                 <b>{{ u.name }}</b>
-                <span>{{ u.reason }} · {{ u.time }}</span>
               </div>
               <button class="bl-out" type="button" @click="unblock(u)">解除</button>
             </div>
@@ -275,12 +251,12 @@
             </button>
             <div class="del-head-t">
               <h2>注销账号</h2>
-              <span class="del-steps num">步骤 {{ delStep }} / 4</span>
+              <span class="del-steps num">步骤 {{ delStep }} / 3</span>
             </div>
           </header>
 
           <div class="del-body">
-            <!-- 步骤 1：条件检查 -->
+            <!-- 步骤 1：条件检查（余额与进行中问诊单均为真实数据） -->
             <template v-if="delStep === 1">
               <p class="del-lead">注销前需要满足以下条件（与主流平台一致）：</p>
               <div class="chk-list">
@@ -302,7 +278,7 @@
             <!-- 步骤 2：风险明示 + 原因 -->
             <template v-else-if="delStep === 2">
               <div class="risk-card">
-                <p class="risk-title"><AppIcon name="alert" :size="16" />注销后以下数据将永久删除，无法恢复</p>
+                <p class="risk-title"><AppIcon name="alert" :size="16" />注销后以下数据将立即永久删除，无法恢复</p>
                 <ul class="risk-list">
                   <li v-for="r in riskItems" :key="r">{{ r }}</li>
                 </ul>
@@ -324,38 +300,25 @@
               </button>
             </template>
 
-            <!-- 步骤 3：身份验证 -->
+            <!-- 步骤 3：最终确认（服务端即时删除，不可恢复） -->
             <template v-else-if="delStep === 3">
-              <p class="del-lead">为确认是本人操作，请验证手机号 {{ maskedPhone }}</p>
-              <CodeInput v-model="delCode" :error="!!delCodeError" />
-              <div class="code-foot">
-                <button
-                  class="f-action"
-                  type="button"
-                  :disabled="delCounting || delSendUsed >= SMS_DAILY_MAX"
-                  @click="sendDelCode"
-                >{{ delCounting ? `${delCountdown}s 后重发` : delSendUsed >= SMS_DAILY_MAX ? '今日发送已达上限' : '获取验证码' }}</button>
-                <span class="code-tip">验证码 5 分钟内有效</span>
+              <div class="risk-card">
+                <p class="risk-title"><AppIcon name="alert" :size="16" />最后确认</p>
+                <ul class="risk-list">
+                  <li>账号 {{ maskedPhone }} 及全部个人数据将被立即删除</li>
+                  <li>删除后无法恢复，也无法用该手机号重新注册找回数据</li>
+                  <li>如仅想暂时停用，可直接退出登录</li>
+                </ul>
               </div>
-              <p v-if="delCodeError" class="f-error">{{ delCodeError }}</p>
-              <div class="cool-tip">
-                <AppIcon name="clock" :size="15" />
-                <span>提交后进入 <b>7 天冷静期</b>：期间任何登录将自动撤销注销申请；7 天后数据永久删除。</span>
-              </div>
+              <p v-if="delError" class="f-error">{{ delError }}</p>
             </template>
 
-            <!-- 步骤 4：已提交，冷静期 -->
+            <!-- 完成：账号已注销 -->
             <template v-else>
               <div class="done-wrap">
                 <span class="done-ic"><AppIcon name="check" :size="34" /></span>
-                <h3 class="done-title">注销申请已提交</h3>
-                <p class="done-sub">账号将于 7 天后（{{ expireText }}）永久注销</p>
-                <div class="cool-card">
-                  <p><b>冷静期规则</b></p>
-                  <p>· 7 天内不要登录本账号，否则申请自动撤销</p>
-                  <p>· 期间可随时点击下方「撤销申请」恢复账号</p>
-                  <p>· 7 天后宠物档案、问诊记录、社区动态等数据将永久删除</p>
-                </div>
+                <h3 class="done-title">账号已注销</h3>
+                <p class="done-sub">全部个人数据已删除，感谢你曾经使用 Petwise</p>
               </div>
             </template>
           </div>
@@ -378,15 +341,12 @@
             >下一步</button>
             <button
               v-else-if="delStep === 3"
-              class="del-btn"
+              class="del-btn danger"
               type="button"
-              :disabled="delCode.join('').length < 6"
+              :disabled="delSubmitting"
               @click="submitDelete"
-            >提交注销申请</button>
-            <template v-else>
-              <button class="del-btn ghost" type="button" @click="revokeDelete">撤销申请</button>
-              <button class="del-btn danger" type="button" @click="finishDelete">退出并清除本机数据</button>
-            </template>
+            >{{ delSubmitting ? '注销中…' : '确认注销（不可恢复）' }}</button>
+            <button v-else class="del-btn" type="button" @click="finishDelete">退出登录</button>
           </footer>
         </div>
       </div>
@@ -395,35 +355,46 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import CodeInput from '@/components/CodeInput.vue'
-import { user } from '@/data/mock'
 import {
-  getAuth,
-  logout,
-  wallet,
-  consultOrders,
-  accountPrefs,
-  saveAccountPrefs,
-  blacklist,
-  unblockUser,
-  clearLocalAccountData,
-  smsSendCount,
-  bumpSmsSend,
-  SMS_DAILY_MAX
-} from '@/data/ops'
-import { showToast } from '@/composables/toast'
+  fetchUser, fetchConsultOrders, logoutUser, smsSendCount, bumpSmsSend, SMS_DAILY_MAX,
+  sendSmsCode, fetchPreferences, savePreferences, fetchBlocked, removeBlocked,
+  changePassword, changePhone, setBinding, deactivateAccount
+} from '@/api/data'
+import { getCachedUser } from '@/api/client'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 
 /* ---------- 账号概览 ---------- */
 
-const auth = ref(getAuth())
+const EMPTY_USER = { name: '', initials: '', handle: '', phone: '', balance: 0 }
+
+const user = ref({ ...EMPTY_USER })
+const orders = ref([])
+
+onMounted(async () => {
+  try {
+    const [u, os] = await Promise.all([fetchUser(), fetchConsultOrders()])
+    user.value = u || { ...EMPTY_USER }
+    orders.value = Array.isArray(os) ? os : os?.list || []
+  } catch (e) {
+    showToast(e?.message || '账号信息加载失败', { type: 'error' })
+  }
+  loadPrefs()
+  // 黑名单计数（列表打开时再拉全量）
+  fetchBlocked()
+    .then((r) => { blocked.value = r?.list || [] })
+    .catch(() => { /* 静默：打开弹层时会重试 */ })
+})
+
+const cachedPhone = ref(getCachedUser()?.phone || '')
 const maskedPhone = computed(() => {
-  const p = auth.value?.phone || '13800138000'
-  return `${p.slice(0, 3)}****${p.slice(-4)}`
+  const p = user.value.phone || cachedPhone.value
+  return p ? `${p.slice(0, 3)}****${p.slice(-4)}` : ''
 })
 const secLevel = computed(() => {
   // 演示：按绑定与偏好给一个粗略的安全等级
@@ -433,9 +404,15 @@ const secLevel = computed(() => {
   return { label: '安全等级：低', cls: 'low' }
 })
 
-/* ---------- 隐私与绑定偏好 ---------- */
+/* ---------- 隐私与绑定偏好（真实接口：GET/PUT /users/preferences） ---------- */
 
-const prefs = ref(accountPrefs())
+const DEFAULT_PREFS = {
+  personalized: true,
+  visibility: 'public', // public / followers / private
+  binds: { wechat: true, apple: false }
+}
+const prefs = ref({ ...DEFAULT_PREFS })
+
 const visibilityOptions = [
   { value: 'public', label: '公开', desc: '所有人可见你的社区动态' },
   { value: 'followers', label: '仅关注者', desc: '只有关注你的人可见' },
@@ -445,45 +422,74 @@ const visibilityLabel = computed(
   () => visibilityOptions.find((v) => v.value === prefs.value.visibility)?.label || '公开'
 )
 
-function togglePersonalized() {
-  prefs.value = saveAccountPrefs({ personalized: !prefs.value.personalized })
-  showToast(prefs.value.personalized ? '已开启个性化推荐' : '已关闭个性化推荐，内容将按热度展示')
-}
-function setVisibility(v) {
-  prefs.value = saveAccountPrefs({ visibility: v })
-  showToast('可见范围已更新')
-}
-function toggleBind(kind) {
-  const binds = { ...prefs.value.binds, [kind]: !prefs.value.binds[kind] }
-  prefs.value = saveAccountPrefs({ binds })
-  const name = kind === 'wechat' ? '微信' : 'Apple ID'
-  showToast(binds[kind] ? `已绑定${name}` : `已解绑${name}`)
+async function loadPrefs() {
+  try {
+    const p = await fetchPreferences()
+    prefs.value = {
+      personalized: p.personalized ?? DEFAULT_PREFS.personalized,
+      visibility: p.visibility || DEFAULT_PREFS.visibility,
+      binds: { ...DEFAULT_PREFS.binds, ...(p.binds || {}) }
+    }
+  } catch (e) {
+    showToast(e?.message || '偏好加载失败', { type: 'error' })
+  }
 }
 
-/* ---------- 黑名单 ---------- */
+async function togglePersonalized() {
+  const next = !prefs.value.personalized
+  try {
+    const p = await savePreferences({ personalized: next })
+    prefs.value = { ...prefs.value, personalized: p.personalized ?? next }
+    showToast(next ? '已开启个性化推荐' : '已关闭个性化推荐，内容将按热度展示')
+  } catch (e) {
+    showToast(e?.message || '设置失败', { type: 'error' })
+  }
+}
+async function setVisibility(v) {
+  try {
+    const p = await savePreferences({ visibility: v })
+    prefs.value = { ...prefs.value, visibility: p.visibility || v }
+    visOpen.value = false
+    showToast('可见范围已更新')
+  } catch (e) {
+    showToast(e?.message || '设置失败', { type: 'error' })
+  }
+}
+async function toggleBind(kind) {
+  const bound = !prefs.value.binds[kind]
+  try {
+    const p = await setBinding(kind, { bound })
+    prefs.value = { ...prefs.value, binds: { ...prefs.value.binds, ...(p.binds || { [kind]: bound }) } }
+    const name = kind === 'wechat' ? '微信' : 'Apple ID'
+    showToast(bound ? `已绑定${name}` : `已解绑${name}`)
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'error' })
+  }
+}
+
+/* ---------- 黑名单（真实接口：GET/POST/DELETE /users/blocked） ---------- */
 
 const blOpen = ref(false)
 const visOpen = ref(false)
 const collectOpen = ref(false)
-const blocked = ref(blacklist())
-function openBlacklist() {
-  blocked.value = blacklist()
+const blocked = ref([])
+async function openBlacklist() {
   blOpen.value = true
+  try {
+    const r = await fetchBlocked()
+    blocked.value = r?.list || []
+  } catch (e) {
+    showToast(e?.message || '黑名单加载失败', { type: 'error' })
+  }
 }
-function unblock(u) {
-  blocked.value = unblockUser(u.id)
-  showToast(`已解除「${u.name}」的拉黑`, { type: 'success' })
-}
-
-/* ---------- 登录设备 ---------- */
-
-const devices = ref([
-  { id: 'dv1', name: 'iPhone 15 Pro', where: '本机 · 北京', last: '刚刚活跃', current: true },
-  { id: 'dv2', name: 'iPad Air', where: '平板 · 上海', last: '昨天 21:14', current: false },
-  { id: 'dv3', name: 'Chrome · Windows', where: '网页端 · 杭州', last: '10-09 08:32', current: false }
-])
-function kickDevice(d) {
-  showToast(`已将「${d.name}」下线`, { type: 'success' })
+async function unblock(u) {
+  try {
+    const r = await removeBlocked(u.id)
+    blocked.value = r?.list || []
+    showToast(`已解除「${u.name}」的拉黑`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'error' })
+  }
 }
 
 /* ---------- 更换手机号 ---------- */
@@ -504,7 +510,7 @@ function openPhone() {
   phoneError.value = ''
   phoneOpen.value = true
 }
-function sendPhoneCode() {
+async function sendPhoneCode() {
   if (!phoneOk.value) {
     phoneError.value = '请输入正确的 11 位手机号'
     return
@@ -513,15 +519,20 @@ function sendPhoneCode() {
     showToast('今日验证码发送次数已达上限，请明天再试', { type: 'warn' })
     return
   }
-  phoneSendUsed.value = bumpSmsSend()
-  phoneCountdown.value = 60
-  phoneTimer = setInterval(() => {
-    phoneCountdown.value -= 1
-    if (phoneCountdown.value <= 0) clearInterval(phoneTimer)
-  }, 1000)
-  showToast(`验证码已发送至 ${phoneForm.phone.slice(0, 3)}****${phoneForm.phone.slice(-4)}（演示：任意 6 位）`, { type: 'success' })
+  try {
+    await sendSmsCode(phoneForm.phone, 'rebind')
+    phoneSendUsed.value = bumpSmsSend()
+    phoneCountdown.value = 60
+    phoneTimer = setInterval(() => {
+      phoneCountdown.value -= 1
+      if (phoneCountdown.value <= 0) clearInterval(phoneTimer)
+    }, 1000)
+    showToast(`验证码已发送至 ${phoneForm.phone.slice(0, 3)}****${phoneForm.phone.slice(-4)}`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '验证码发送失败', { type: 'error' })
+  }
 }
-function submitPhone() {
+async function submitPhone() {
   phoneError.value = ''
   if (!phoneOk.value) {
     phoneError.value = '请输入正确的 11 位手机号'
@@ -531,14 +542,14 @@ function submitPhone() {
     phoneError.value = '请输入 6 位验证码'
     return
   }
-  // 演示环境：直接更新本机登录态
-  const next = { ...auth.value, phone: phoneForm.phone }
-  auth.value = next
   try {
-    localStorage.setItem('petwise_auth', JSON.stringify(next))
-  } catch (e) { /* ignore */ }
-  phoneOpen.value = false
-  showToast('手机号已更换，请使用新手机号登录', { type: 'success' })
+    const u = await changePhone({ phone: phoneForm.phone, code: phoneForm.code.join('') })
+    user.value = { ...user.value, ...(u || {}) }
+    phoneOpen.value = false
+    showToast('手机号已更换，请使用新手机号登录', { type: 'success' })
+  } catch (e) {
+    phoneError.value = e?.message || '更换失败，请重试'
+  }
 }
 
 /* ---------- 修改密码（自 Profile.vue 迁入，全站唯一实现） ---------- */
@@ -554,10 +565,10 @@ function openPwd() {
   pwdError.value = ''
   pwdOpen.value = true
 }
-function submitPwd() {
+async function submitPwd() {
   pwdError.value = ''
   if (pwd.old.length < 6) {
-    pwdError.value = '请输入正确的当前密码（演示环境任意 6 位以上）'
+    pwdError.value = '请输入当前密码（至少 6 位）'
     return
   }
   if (pwd.n1.length < 6) {
@@ -572,8 +583,13 @@ function submitPwd() {
     pwdError.value = '新密码不能与当前密码相同'
     return
   }
-  pwdOpen.value = false
-  showToast('密码已修改，请牢记新密码', { type: 'success' })
+  try {
+    await changePassword({ oldPassword: pwd.old, newPassword: pwd.n1 })
+    pwdOpen.value = false
+    showToast('密码已修改，请牢记新密码', { type: 'success' })
+  } catch (e) {
+    pwdError.value = e?.message || '修改失败，请重试'
+  }
 }
 
 /* ---------- 注销流程 ---------- */
@@ -588,27 +604,23 @@ const collectList = [
 const riskItems = [
   '宠物档案与全部健康记录',
   '问诊报告、处方与聊天记录',
-  '社区动态、关注与粉丝关系',
+  '社区动态、评论与点赞',
   '收藏、日程提醒与备忘录',
   '钱包余额与交易流水',
-  '账号本身（7 天后无法登录）'
+  '账号本身（删除后无法登录）'
 ]
 const deleteReasons = ['不再需要养宠记录', '体验不符合预期', '担心隐私安全', '找到了替代产品', '想换个账号重新开始', '其他原因']
 
 const delStep = ref(0)
 const delReason = ref('')
+const delSubmitting = ref(false)
+const delError = ref('')
 const backupConfirmed = ref(false)
 const riskAgreed = ref(false)
-const delCode = ref(['', '', '', '', '', ''])
-const delCodeError = ref('')
-const delCountdown = ref(0)
-const delSendUsed = ref(smsSendCount())
-let delTimer = null
-const delCounting = computed(() => delCountdown.value > 0)
 
 const deleteChecks = computed(() => {
-  const bal = wallet().balance
-  const activeOrders = consultOrders().filter((o) => o.state !== 'closed')
+  const bal = Number(user.value.balance) || 0
+  const activeOrders = orders.value.filter((o) => o.state !== 'closed')
   return [
     { label: '账号状态正常，无安全风险', ok: true, hint: '', fix: null },
     {
@@ -627,18 +639,12 @@ const deleteChecks = computed(() => {
 })
 const deleteReady = computed(() => deleteChecks.value.every((c) => c.ok) && backupConfirmed.value)
 
-const expireText = computed(() => {
-  const d = new Date(Date.now() + 7 * 86400000)
-  return `${d.getMonth() + 1} 月 ${d.getDate()} 日`
-})
-
 function closeDelete() {
   delStep.value = 0
   delReason.value = ''
+  delError.value = ''
   backupConfirmed.value = false
   riskAgreed.value = false
-  delCode.value = ['', '', '', '', '', '']
-  delCodeError.value = ''
 }
 
 function fixCheck(c) {
@@ -653,40 +659,33 @@ function fixCheck(c) {
   }
 }
 
-function sendDelCode() {
-  if (delSendUsed.value >= SMS_DAILY_MAX) {
-    showToast('今日验证码发送次数已达上限，请明天再试', { type: 'warn' })
-    return
+async function submitDelete() {
+  delError.value = ''
+  delSubmitting.value = true
+  try {
+    await deactivateAccount({ reason: delReason.value })
+    delStep.value = 4
+    showToast('账号已注销', { type: 'success' })
+  } catch (e) {
+    delError.value = e?.message || '注销失败，请稍后再试'
+  } finally {
+    delSubmitting.value = false
   }
-  delSendUsed.value = bumpSmsSend()
-  delCountdown.value = 60
-  delTimer = setInterval(() => {
-    delCountdown.value -= 1
-    if (delCountdown.value <= 0) clearInterval(delTimer)
-  }, 1000)
-  showToast(`验证码已发送至 ${maskedPhone.value}（演示：任意 6 位）`, { type: 'success' })
 }
 
-function submitDelete() {
-  if (delCode.value.join('').length < 6) {
-    delCodeError.value = '请输入 6 位验证码'
-    return
-  }
-  delCodeError.value = ''
-  delStep.value = 4
-  showToast('注销申请已提交，进入 7 天冷静期', { type: 'success' })
-}
-
-function revokeDelete() {
-  closeDelete()
-  showToast('已撤销注销申请，账号恢复正常', { type: 'success' })
-}
-
-function finishDelete() {
-  clearLocalAccountData()
-  logout()
-  router.replace('/login')
-  showToast('本机数据已清除，账号已退出', { type: 'info' })
+// 清除本机账号数据（注销后退出登录用）：清除所有 petwise_ 前缀的本地键
+function clearLocalAccountData() {
+  const removed = []
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('petwise_')) {
+        removed.push(k)
+        localStorage.removeItem(k)
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return removed
 }
 </script>
 

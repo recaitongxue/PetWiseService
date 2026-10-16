@@ -10,22 +10,6 @@
       </button>
     </header>
 
-    <!-- 分段标签 -->
-    <div class="tabs" v-reveal="{ delay: 80 }">
-      <button
-        class="tab"
-        :class="{ on: tab === 'recommend' }"
-        type="button"
-        @click="tab = 'recommend'"
-      >
-        推荐
-      </button>
-      <button class="tab" :class="{ on: tab === 'follow' }" type="button" @click="tab = 'follow'">
-        关注
-      </button>
-      <span class="tab-glider" :class="tab"></span>
-    </div>
-
     <!-- 话题条（可点击筛选） -->
     <div class="topics" v-reveal="{ delay: 120 }">
       <button
@@ -95,31 +79,25 @@
             >{{ e }}</button>
           </div>
 
-          <div class="sheet-gallery-label">添加图片（最多 3 张）</div>
+          <div class="sheet-gallery-label">添加图片（最多 3 张，真实上传）</div>
           <div class="sheet-gallery">
-            <button
-              v-for="e in galleryPool"
-              :key="e"
-              type="button"
-              class="g-item"
-              :class="['tone-' + e, { on: draftImages.includes(e) }]"
-              @click="toggleTone(e)"
-            ></button>
-          </div>
-
-          <div class="sheet-gallery-label">添加视频</div>
-          <div class="video-row">
-            <button
-              class="v-pick"
-              :class="{ on: draftVideo }"
-              type="button"
-              @click="draftVideo = !draftVideo"
-            >
-              <AppIcon name="video" :size="18" />
-              {{ draftVideo ? '已选择 1 段视频' : '从相册选择视频' }}
+            <template v-if="draftImages.length">
+              <div v-for="(url, i) in draftImages" :key="i" class="g-item url" :style="{ backgroundImage: `url(${url})` }">
+                <button class="g-remove" type="button" aria-label="移除图片" @click="draftImages.splice(i, 1)">×</button>
+              </div>
+            </template>
+            <button v-if="draftImages.length < 3" class="g-item g-add" type="button" @click="pickPostImages">
+              <AppIcon name="plus" :size="22" />
             </button>
-            <span class="v-tip">视频将作为动态首图，带时长标识</span>
           </div>
+          <input
+            ref="postImgInput"
+            class="file-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            @change="onPostImagesPicked"
+          />
 
           <div class="sheet-gallery-label">参与话题</div>
           <div class="topic-picks">
@@ -231,55 +209,71 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PostCard from '@/components/PostCard.vue'
-import { feed, user, commentsByPost, galleryPool } from '@/data/mock'
-import { reportPost as saveReport, addFavorite } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import {
+  fetchFeed, fetchUser, fetchPostComments, publishPost,
+  commentPost as sendPostComment, reportPost as submitPostReport, addFavorite
+} from '@/api/data'
+import { fileApi } from '@/api'
+import { showToast } from '@shared/toast'
 
-const tab = ref('recommend')
 const topics = ['成长记录', '健康管理', '柯基', '英短', '换季护理', '线下撸猫']
 const activeTopic = ref(null)
-const posts = ref([...feed])
+const posts = ref([])
 const hidden = ref([])
+const me = ref({ name: '' })
 
 const emojis = ['🐱', '🐶', '😻', '🥺', '😭', '🤤', '👍', '🎉', '🐾', '❤️', '😴', '✨']
 
 const visiblePosts = computed(() => {
   let list = posts.value.filter((p) => !hidden.value.includes(p.id))
-  if (tab.value === 'follow') list = list.filter((_, i) => i % 2 === 1)
   if (activeTopic.value) {
-    const tag = '#' + activeTopic.value
-    list = list.filter((p) => p.tags.includes(tag))
+    // 后端 tags 不带 '#' 前缀（mock 时代带），比较时统一去掉
+    const tag = activeTopic.value.replace(/^#/, '')
+    list = list.filter((p) => (p.tags || []).some((t) => String(t).replace(/^#/, '') === tag))
   }
   return list
 })
 
-let moreCount = 0
-function loadMore() {
-  moreCount++
-  posts.value.push({
-    id: 'more' + moreCount,
-    author: '橘座铲屎团',
-    species: 'cat',
-    time: '刚刚',
-    text: '又是被主子统治的一天，分享一张今天的窗台晒太阳。',
-    images: ['peach', 'coral'],
-    tags: ['#日常', '#晒太阳'],
-    likes: 12,
-    comments: 3,
-    liked: false
-  })
+/* ---------- 加载 / 分页 ---------- */
+
+const page = ref(1)
+const hasMore = ref(true)
+const loading = ref(false)
+
+async function load(reset = true) {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const next = reset ? 1 : page.value + 1
+    const list = await fetchFeed({ page: next, page_size: 20 })
+    posts.value = reset ? list : [...posts.value, ...list]
+    page.value = next
+    hasMore.value = (list || []).length >= 20
+  } catch (e) {
+    showToast(e?.message || '动态加载失败', { type: 'error' })
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadMore() {
+  if (!hasMore.value) return showToast('没有更多动态了', { type: 'info' })
+  await load(false)
 }
 
 /* ---------- 发布 ---------- */
 
 const composing = ref(false)
 const draft = ref('')
-const draftImages = ref([])
-const draftVideo = ref(false)
+const draftImages = ref([]) // 真实上传后的 URL 列表（最多 3 张）
 const draftTopic = ref('')
+const postImgInput = ref(null)
+const uploading = ref(false)
+const MAX_POST_IMAGES = 3
+const MAX_IMAGE_MB = 8
 
 function openCompose() {
   composing.value = true
@@ -287,38 +281,58 @@ function openCompose() {
 function closeCompose() {
   composing.value = false
 }
-function toggleTone(e) {
-  const i = draftImages.value.indexOf(e)
-  if (i >= 0) draftImages.value.splice(i, 1)
-  else if (draftImages.value.length < 3) draftImages.value.push(e)
+function pickPostImages() {
+  postImgInput.value?.click()
 }
-function publish() {
+async function onPostImagesPicked(e) {
+  const files = Array.from(e.target.files || [])
+  e.target.value = ''
+  if (!files.length) return
+  const room = MAX_POST_IMAGES - draftImages.value.length
+  const picked = files.slice(0, room)
+  uploading.value = true
+  try {
+    for (const f of picked) {
+      if (!f.type.startsWith('image/')) {
+        showToast('只能选择图片文件', { type: 'warn' })
+        continue
+      }
+      if (f.size > MAX_IMAGE_MB * 1024 * 1024) {
+        showToast(`「${f.name}」超过 ${MAX_IMAGE_MB}MB，已跳过`, { type: 'warn' })
+        continue
+      }
+      const fd = new FormData()
+      fd.append('file', f)
+      const up = await fileApi.upload(fd, 'post')
+      if (up?.url) draftImages.value.push(up.url)
+    }
+  } catch (err) {
+    showToast(err?.message || '图片上传失败', { type: 'error' })
+  } finally {
+    uploading.value = false
+  }
+}
+async function publish() {
   if (!draft.value.trim()) return
-  const hasVideo = draftVideo.value
-  const tags = ['#我的日常']
-  if (draftTopic.value) tags.unshift('#' + draftTopic.value)
-  posts.value.unshift({
-    id: 'mine' + Date.now(),
-    author: user.name,
-    species: 'cat',
-    time: '刚刚',
-    text: draft.value.trim(),
-    images: [...draftImages.value],
-    videos: hasVideo ? 1 : 0,
-    videoDuration: '00:12',
-    tags,
-    likes: 0,
-    comments: 0,
-    liked: false
-  })
+  const tags = ['我的日常']
+  if (draftTopic.value) tags.unshift(draftTopic.value)
+  try {
+    const created = await publishPost({
+      text: draft.value.trim(),
+      images: [...draftImages.value],
+      tags
+    })
+    posts.value.unshift(created)
+    showToast('已发布到社区', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '发布失败', { type: 'error' })
+    return
+  }
   draft.value = ''
   draftImages.value = []
-  draftVideo.value = false
   draftTopic.value = ''
   composing.value = false
-  tab.value = 'recommend'
   activeTopic.value = null
-  showToast(hasVideo ? '已发布（含 1 段视频）' : '已发布到社区', { type: 'success' })
 }
 
 /* ---------- 评论 ---------- */
@@ -327,9 +341,14 @@ const commentPost = ref(null)
 const commentList = ref([])
 const commentDraft = ref('')
 
-function openComments(post) {
+async function openComments(post) {
   commentPost.value = post
-  commentList.value = [...(commentsByPost[post.id] || [])]
+  commentList.value = []
+  try {
+    commentList.value = await fetchPostComments(post.id)
+  } catch (e) {
+    showToast(e?.message || '评论加载失败', { type: 'error' })
+  }
 }
 function closeComments() {
   commentPost.value = null
@@ -337,19 +356,20 @@ function closeComments() {
 }
 function toggleCommentLike(i) {
   const c = commentList.value[i]
-  c.liked = !c.liked
+  if (c) c.liked = !c.liked
 }
-function sendComment() {
+async function sendComment() {
   const text = commentDraft.value.trim()
-  if (!text) return
-  commentList.value.push({
-    name: user.name,
-    text,
-    time: '刚刚',
-    liked: false
-  })
-  commentDraft.value = ''
-  if (commentPost.value) commentPost.value.comments++
+  if (!text || !commentPost.value) return
+  const post = commentPost.value
+  try {
+    const created = await sendPostComment(post.id, text)
+    commentList.value.push(created || { name: me.value.name, text, time: '刚刚', liked: false })
+    commentDraft.value = ''
+    post.comments = (post.comments || 0) + 1
+  } catch (e) {
+    showToast(e?.message || '评论发送失败', { type: 'error' })
+  }
 }
 
 /* ---------- 更多操作 / 举报 / 收藏 ---------- */
@@ -362,18 +382,18 @@ function openMore(post) {
   morePost.value = post
 }
 
-function favorite(post) {
+async function favorite(post) {
   morePost.value = null
-  const ok = addFavorite({
-    id: 'post-' + post.id,
-    kind: 'post',
-    title: post.author + '的动态',
-    desc: post.text.slice(0, 30),
-    to: '/community'
-  })
-  showToast(ok ? '已收藏，可在「我的-收藏」查看' : '这条动态已在收藏里', {
-    type: ok ? 'success' : 'info'
-  })
+  try {
+    await addFavorite('post', post.id, {
+      title: post.author + '的动态',
+      desc: (post.text || '').slice(0, 30),
+      route: '/community'
+    })
+    showToast('已收藏，可在「我的-收藏」查看', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '收藏失败', { type: 'error' })
+  }
 }
 
 function share(post) {
@@ -391,16 +411,30 @@ function openReport(post) {
   reportPost.value = post
 }
 
-function submitReport(reason) {
+async function submitReport(reason) {
   const p = reportPost.value
-  saveReport({ postId: p.id, author: p.author, reason })
+  if (!p) return
+  try {
+    await submitPostReport(p.id, { reason })
+    showToast('已提交举报，平台会尽快审核', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '举报提交失败', { type: 'error' })
+  }
   reportPost.value = null
-  showToast('已提交举报，平台会尽快审核', { type: 'success' })
 }
 
 function initial(name) {
   return (name || '?').slice(0, 1)
 }
+
+onMounted(async () => {
+  try {
+    me.value = (await fetchUser()) || { name: '' }
+  } catch {
+    me.value = { name: '' }
+  }
+  load(true)
+})
 </script>
 
 <style scoped>
@@ -421,37 +455,6 @@ function initial(name) {
   border: 1px solid var(--color-border);
   color: var(--color-ink);
 }
-
-.tabs {
-  position: relative;
-  display: inline-flex;
-  background: var(--color-surface-2);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  margin: 8px 0 14px;
-}
-.tab {
-  position: relative;
-  z-index: 1;
-  padding: 8px 22px;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--color-muted);
-  transition: color var(--dur-base) var(--ease-out);
-}
-.tab.on { color: var(--color-ink); }
-.tab-glider {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  width: calc(50% - 4px);
-  background: var(--color-surface);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-1);
-  transition: transform var(--dur-base) var(--ease-out);
-}
-.tab-glider.recommend { transform: translateX(0); }
-.tab-glider.follow { transform: translateX(100%); }
 
 .topics {
   display: flex;
@@ -599,7 +602,7 @@ function initial(name) {
 }
 .sheet-gallery {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 .g-item {
@@ -610,36 +613,34 @@ function initial(name) {
   position: relative;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  background-size: cover;
+  background-position: center;
   transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast);
 }
-.g-item.tone-sage { background: var(--grad-sage); }
-.g-item.tone-peach { background: var(--grad-peach); }
-.g-item.tone-ink { background: var(--grad-ink); }
-.g-item.tone-coral { background: var(--grad-coral); }
-.g-item.tone-sand { background: var(--grad-sand); }
-.g-item.on { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent); }
 .g-item:active { transform: scale(0.9); }
-
-.video-row { display: flex; align-items: center; gap: 10px; }
-.v-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 11px 16px;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--hairline-strong);
-  background: var(--color-surface);
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--color-ink-2);
+.g-add {
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+  border-style: dashed;
+  border-color: var(--hairline-strong);
+  cursor: pointer;
 }
-.v-pick.on {
-  border-style: solid;
-  border-color: var(--color-accent);
-  color: var(--color-accent-ink);
-  background: var(--color-accent-soft);
+.g-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
 }
-.v-tip { font-size: 11px; color: var(--color-faint); }
+.file-input { display: none; }
 
 .topic-picks { display: flex; flex-wrap: wrap; gap: 8px; }
 .topic-pick {

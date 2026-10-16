@@ -78,26 +78,50 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { contactGroups } from '@/data/mock'
-import { showToast } from '@/composables/toast'
+import { fetchContactGroups, createConversation } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 const q = ref('')
 const friendRequests = 2
 
-const totalContacts = contactGroups.reduce((s, g) => s + g.members.length, 0)
+// 后端分组返回 {id, title, count, members}；模板用 label/icon，这里做一次归一化
+const GROUP_META = {
+  friend: { label: '我的好友', icon: 'user' },
+  vet: { label: '我的兽医', icon: 'stethoscope' },
+  group: { label: '宠物社群', icon: 'chat' }
+}
+const contactGroups = ref([])
+
+onMounted(async () => {
+  try {
+    const r = await fetchContactGroups()
+    contactGroups.value = (r?.groups || []).map((g) => ({
+      id: g.id,
+      label: GROUP_META[g.id]?.label || g.title || g.id,
+      icon: GROUP_META[g.id]?.icon || 'user',
+      members: g.members || []
+    }))
+  } catch (e) {
+    showToast(e?.message || '通讯录加载失败', { type: 'error' })
+  }
+})
+
+const totalContacts = computed(() =>
+  contactGroups.value.reduce((s, g) => s + g.members.length, 0)
+)
 
 const filteredGroups = computed(() => {
   const kw = q.value.trim().toLowerCase()
-  if (!kw) return contactGroups
-  return contactGroups
+  if (!kw) return contactGroups.value
+  return contactGroups.value
     .map((g) => ({
       ...g,
       members: g.members.filter(
-        (m) => m.name.toLowerCase().includes(kw) || m.bio.toLowerCase().includes(kw)
+        (m) => (m.name || '').toLowerCase().includes(kw) || (m.bio || '').toLowerCase().includes(kw)
       )
     }))
     .filter((g) => g.members.length)
@@ -109,9 +133,17 @@ function initial(name) {
 
 // 有会话直达聊天室；兽医看资料页；其余从通讯录发起新会话
 function open(m) {
-  if (m.chatId) return router.push(`/chat/${m.chatId}`)
   if (m.doctorId) return router.push(`/doctor/${m.doctorId}`)
-  router.push(`/chat/${m.id}`)
+  // 有直达会话 id 的（seed 绑定的老会话）直接进；
+  // 否则先调后端按联系人建/复用会话，拿到真实会话 id 再跳转
+  // （联系人 id 与会话 id 是不同命名空间，不能互相顶替）
+  if (m.chatId) return router.push(`/chat/${m.chatId}`)
+  createConversation(m.id)
+    .then((conv) => {
+      if (conv?.id) router.push(`/chat/${conv.id}`)
+      else showToast('无法发起会话，请稍后重试', { type: 'warn' })
+    })
+    .catch((e) => showToast(e?.message || '发起会话失败', { type: 'error' }))
 }
 
 function addContact() {

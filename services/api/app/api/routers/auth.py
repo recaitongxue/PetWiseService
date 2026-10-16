@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
 import random
 
 from fastapi import APIRouter
@@ -16,6 +17,7 @@ from app.core.envelope import ok
 from app.core.errors import AppError, ErrorCode
 from app.core.logging import get_logger
 from app.core.security import create_access_token, create_refresh_token, decode_token
+from app.core.sms import DEBUG_CODE, verify_code
 from app.models.sms_code import SmsCode
 from app.models.user import User
 from app.schemas.user import LoginSmsIn, SmsSendIn, sms_debug_enabled
@@ -23,11 +25,13 @@ from app.schemas.user import LoginSmsIn, SmsSendIn, sms_debug_enabled
 logger = get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-DEBUG_CODE = "888888"
-
 
 def _gen_code() -> str:
     return f"{random.randint(0, 999999):06d}"
+
+
+def _sha256(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
 def _user_claims(user: User) -> dict:
@@ -73,36 +77,41 @@ def login_sms(body: LoginSmsIn, db: DbSession) -> dict:
 @router.post("/login", summary="登录（短信 / 密码）")
 def login(body: dict, db: DbSession) -> dict:
     mode = (body or {}).get("mode", "sms")
-    if mode == "password":
-        # 演示环境未启用密码登录（User 无 password_hash），统一引导验证码登录
-        raise AppError(ErrorCode.BAD_REQUEST, "演示环境仅支持验证码登录")
     phone = (body or {}).get("phone")
+    if mode == "password":
+        password = (body or {}).get("password") or ""
+        if not phone or not password:
+            raise AppError(ErrorCode.BAD_REQUEST, "缺少手机号或密码")
+        return _do_password_login(phone, password, db)
     code = (body or {}).get("code")
     if not phone or not code:
         raise AppError(ErrorCode.BAD_REQUEST, "缺少手机号或验证码")
     return _do_login(phone, code, db)
 
 
+def _do_password_login(phone: str, password: str, db: DbSession) -> dict:
+    user = db.query(User).filter(User.phone == phone).first()
+    if user is None or not user.password_hash:
+        raise AppError(ErrorCode.BAD_REQUEST, "该手机号未注册或未设置密码，请用验证码登录")
+    if _sha256(password) != user.password_hash:
+        raise AppError(ErrorCode.BAD_REQUEST, "手机号或密码错误")
+    return _issue_tokens(user)
+
+
 def _do_login(phone: str, code: str, db: DbSession) -> dict:
-    now = datetime.datetime.now()
-    if not (sms_debug_enabled() and code == DEBUG_CODE):
-        rec = (
-            db.query(SmsCode)
-            .filter(SmsCode.phone == phone, SmsCode.consumed.is_(False), SmsCode.expires_at > now)
-            .order_by(SmsCode.id.desc())
-            .first()
-        )
-        if not rec or rec.code != code:
-            raise AppError(ErrorCode.BAD_REQUEST, "验证码错误或已过期")
-        rec.consumed = True
+    if not verify_code(db, phone, code, scene="login"):
+        raise AppError(ErrorCode.BAD_REQUEST, "验证码错误或已过期")
 
     user = db.query(User).filter(User.phone == phone).first()
     if user is None:
         user = User(phone=phone, nickname=f"宠主{phone[-4:]}")
         db.add(user)
-    db.commit()
-    db.refresh(user)
+        db.commit()
+        db.refresh(user)
+    return _issue_tokens(user)
 
+
+def _issue_tokens(user: User) -> dict:
     access, expires_in = create_access_token(str(user.id), role=user.role)
     refresh, _ = create_refresh_token(str(user.id))
     return ok(

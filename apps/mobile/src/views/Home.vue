@@ -219,12 +219,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import HealthRing from '@/components/HealthRing.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { quickActions, tips } from '@/data/mock'
+import { quickActions, tips } from '@/data/static'
 import {
   fetchUser, fetchPets, fetchPetTrend, fetchPetSchedule, fetchScheduleTypes,
   fetchAnnouncements, dismissAnnouncement, toggleScheduleDone
 } from '@/api/data'
-import { showToast } from '@/composables/toast'
+import { showToast } from '@shared/toast'
 
 const user = ref({ name: '' })
 const pets = ref([])

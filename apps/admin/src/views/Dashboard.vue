@@ -1,6 +1,6 @@
 <template>
   <section>
-    <!-- 指标卡：基础量为演示累计值，增量读共享键真实数据 -->
+    <!-- 指标卡：全部取自后端 /admin/overview -->
     <div class="stats">
       <article v-for="(s, i) in statCards" :key="s.key" class="card stat" v-reveal="{ delay: i * 60 }">
         <p class="stat-label">{{ s.label }}</p>
@@ -13,7 +13,7 @@
     </div>
 
     <div class="grid">
-      <!-- 调用量折线 -->
+      <!-- 调用量折线：近 7 日趋势 -->
       <article class="card chart-card" v-reveal>
         <div class="card-head">
           <div>
@@ -62,35 +62,17 @@
             {{ d }}
           </text>
         </svg>
-      </article>
-
-      <!-- 品种分布 -->
-      <article class="card breed-card" v-reveal="{ delay: 80 }">
-        <div class="card-head">
-          <div>
-            <h2 class="card-title">品种识别分布</h2>
-            <p class="card-sub">近 30 日 TOP 6</p>
-          </div>
-        </div>
-        <ul class="breeds">
-          <li v-for="(b, i) in breedDist" :key="b.name" class="breed" v-reveal="{ delay: 120 + i * 50 }">
-            <span class="b-name">{{ b.name }}</span>
-            <span class="b-track">
-              <span class="b-bar" :style="{ width: (b.pct / 30) * 100 + '%' }"></span>
-            </span>
-            <span class="b-pct num">{{ b.pct }}%</span>
-          </li>
-        </ul>
+        <p v-if="!usageSeries.days.length" class="empty">{{ loading ? '加载中…' : '暂无趋势数据' }}</p>
       </article>
     </div>
 
     <div class="grid-2">
-      <!-- 运营待办：全部来自共享键的真实待处理数据 -->
+      <!-- 运营待办：后端统计的实时待处理数量 -->
       <article class="card" v-reveal>
         <div class="card-head">
           <div>
             <h2 class="card-title">运营待办</h2>
-            <p class="card-sub">来自 App 端实时写入的共享数据</p>
+            <p class="card-sub">后端实时统计的待处理数量</p>
           </div>
         </div>
         <div class="todo-list">
@@ -106,7 +88,7 @@
         </div>
       </article>
 
-      <!-- 系统状态：CV 模型配置真实读取 -->
+      <!-- 系统状态：CV 模型为静态配置 -->
       <article class="card" v-reveal="{ delay: 60 }">
         <div class="card-head">
           <div>
@@ -116,14 +98,6 @@
           <span class="live"><i></i>运行正常</span>
         </div>
         <div class="sys-list">
-          <div v-for="m in modelStatus" :key="m.kind" class="sys-row">
-            <span class="sys-ic"><AppIcon name="sparkle" :size="15" /></span>
-            <div class="sys-body">
-              <b>{{ m.name }}</b>
-              <span>{{ m.backbone }} · {{ m.classes }} 类 · {{ m.note }}</span>
-            </div>
-            <span class="badge watch">流水线就绪</span>
-          </div>
           <div class="sys-row">
             <span class="sys-ic sage"><AppIcon name="check" :size="15" /></span>
             <div class="sys-body">
@@ -144,12 +118,12 @@
       </article>
     </div>
 
-    <!-- 今日动态：真实识别与举报 -->
+    <!-- 实时动态：App 端写入的识别纠正、反馈与举报 -->
     <article class="card" v-reveal style="margin-top: 16px">
       <div class="card-head">
         <div>
-          <h2 class="card-title">今日动态</h2>
-          <p class="card-sub">App 端最新写入的识别与举报</p>
+          <h2 class="card-title">最新动态</h2>
+          <p class="card-sub">来自后端 /admin/overview 的实时数据</p>
         </div>
       </div>
       <div class="feed-list">
@@ -158,20 +132,28 @@
           <span class="feed-text">
             <b>{{ r.predicted }}</b>
             <template v-if="r.corrected"> · 用户手动纠正为 <b>{{ r.corrected }}</b></template>
-            <span class="feed-meta num">置信度 {{ Math.round((r.confidence || 0) * 100) }}% · {{ r.date }}</span>
+            <span class="feed-meta num">置信度 {{ Math.round((r.confidence || 0) * 100) }}% · {{ r.time }}</span>
           </span>
           <span class="badge" :class="r.corrected ? 'watch' : 'good'">{{ r.corrected ? '待审核' : '已通过' }}</span>
         </div>
         <div v-for="rp in latestReports" :key="rp.id" class="feed-row">
           <span class="feed-ic alert"><AppIcon name="alert" :size="14" /></span>
           <span class="feed-text">
-            举报：<b>{{ rp.author }}</b> 的动态 · {{ rp.reason }}
-            <span class="feed-meta num">{{ rp.time }}</span>
+            举报：<b>{{ rp.postAuthor }}</b> 的动态 · {{ rp.reason }}
+            <span class="feed-meta num">{{ rp.createdAt }}</span>
           </span>
           <span class="badge watch">待处理</span>
         </div>
-        <p v-if="!latestRecognitions.length && !latestReports.length" class="empty">
-          暂无今日动态。App 端的识别、纠正与举报会实时出现在这里。
+        <div v-for="fb in recentFeedback" :key="'fb' + fb.id" class="feed-row">
+          <span class="feed-ic sage"><AppIcon name="bell" :size="14" /></span>
+          <span class="feed-text">
+            <b>{{ fb.userName }}</b> · {{ fbTypeLabel(fb.type) }}
+            <span class="feed-meta num">{{ fb.content }} · {{ fb.createdAt }}</span>
+          </span>
+          <span class="badge" :class="fb.status === 'pending' ? 'watch' : 'good'">{{ fbStatusLabel(fb.status) }}</span>
+        </div>
+        <p v-if="!latestRecognitions.length && !latestReports.length && !recentFeedback.length" class="empty">
+          暂无动态。App 端的识别纠正、举报与反馈会实时出现在这里。
         </p>
       </div>
     </article>
@@ -179,68 +161,90 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { users, pets, recognitions, posts, consults, usageSeries, breedDist, modelStatus } from '@/data/admin'
+import { adminApi } from '@/api'
+import { showToast } from '@shared/toast'
 
-const RECOG_KEY = 'petwise_recognitions'
-const REPORT_KEY = 'petwise_post_reports'
-const USER_KEY = 'petwise_admin_users'
+const overview = ref(null)
+const loading = ref(true)
 
-function readJSON(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || '[]')
-  } catch (e) {
-    return []
-  }
+function num(v) {
+  return Number(v) || 0
 }
 
-// 真实数据：App 端识别记录 / 举报 + 管理端自定义用户
-const appRecognitions = readJSON(RECOG_KEY)
-const postReports = readJSON(REPORT_KEY)
-const customUsers = readJSON(USER_KEY)
+async function load() {
+  loading.value = true
+  try {
+    overview.value = await adminApi.overview()
+  } catch (e) {
+    showToast(e?.message || '看板数据加载失败', { type: 'warn' })
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(load)
 
-const reviewCount = recognitions.filter((r) => r.state === 'review').length + appRecognitions.filter((r) => r.status === 'review').length
-const pendingReports = postReports.filter((r) => r.state === 'pending').length
-const pendingPosts = posts.filter((p) => p.state === 'pending').length
-const todayRecognitions = recognitions.length + appRecognitions.length
+const FB_TYPE = { bug: '问题反馈', suggestion: '建议', complaint: '投诉' }
+const FB_STATUS = { pending: '待处理', processing: '处理中', resolved: '已处理', rejected: '已驳回' }
+function fbTypeLabel(t) {
+  return FB_TYPE[t] || '反馈'
+}
+function fbStatusLabel(s) {
+  return FB_STATUS[s] || s || '待处理'
+}
 
-const statCards = computed(() => [
-  { key: 'users', label: '注册用户', value: 12840 + users.length + customUsers.length, delta: `+${customUsers.length}`, dir: 'up', hint: '管理端新增' },
-  { key: 'pets', label: '在档宠物', value: 17230 + pets.length, delta: `+${pets.length}`, dir: 'up', hint: '含演示档案' },
-  { key: 'recog', label: '累计识别', value: 42130 + todayRecognitions, delta: `+${todayRecognitions}`, dir: 'up', hint: 'CV 调用量' },
-  { key: 'consult', label: '累计问诊', value: 9860 + consults.length, delta: `+${consults.length}`, dir: 'up', hint: '大模型会话' }
-])
+const stats = computed(() => overview.value?.stats ?? {})
+const today = computed(() => overview.value?.today ?? {})
+
+const statCards = computed(() => {
+  const s = stats.value
+  const t = today.value
+  return [
+    { key: 'users', label: '注册用户', value: num(s.users), delta: `+${num(t.newUsers)}`, dir: 'up', hint: '今日新增' },
+    { key: 'pets', label: '在档宠物', value: num(s.pets), delta: '—', dir: '', hint: `注册兽医 ${num(s.doctors)} 位` },
+    { key: 'recog', label: '累计识别', value: num(s.recognitions), delta: `+${num(t.newRecognitions)}`, dir: 'up', hint: 'CV 调用量' },
+    { key: 'consult', label: '累计问诊', value: num(s.consults), delta: `+${num(t.newConsults)}`, dir: 'up', hint: `进行中 ${num(s.ongoingConsults)}` }
+  ]
+})
 
 const todos = computed(() => [
-  { to: '/moderation', label: '待处理举报', hint: '来自 App 端用户举报', icon: 'alert', tone: 'alert', count: pendingReports },
-  { to: '/moderation', label: '待审核内容', hint: 'AI 预审标记的可疑动态', icon: 'shield', tone: 'coral', count: pendingPosts },
-  { to: '/records', label: '识别纠正待审', hint: '用户手动更改的识别结果', icon: 'eye', tone: 'sage', count: reviewCount },
-  { to: '/consults', label: '转人工问诊', hint: 'AI 分诊建议线下面诊', icon: 'stethoscope', tone: 'sage', count: consults.filter((c) => c.state === 'transferred').length }
+  { to: '/moderation', label: '待处理举报', hint: '来自 App 端用户举报', icon: 'alert', tone: 'alert', count: num(stats.value.pendingReports) },
+  { to: '/feedback', label: '待处理反馈', hint: '来自 App「意见反馈」', icon: 'bell', tone: 'coral', count: num(stats.value.pendingFeedback) },
+  { to: '/records', label: '识别纠正待审', hint: '用户手动更改的识别结果', icon: 'eye', tone: 'sage', count: num(stats.value.pendingCorrections) },
+  { to: '/consults', label: '进行中问诊', hint: '待回复 / 已回复未结单', icon: 'stethoscope', tone: 'sage', count: num(stats.value.ongoingConsults) }
 ])
 
-const latestRecognitions = computed(() =>
-  [...appRecognitions]
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
-    .slice(0, 4)
-)
+// 近 7 日趋势：overview.trend = [{ day:'08-15', consults, recognitions }]
+const usageSeries = computed(() => {
+  const trend = overview.value?.trend ?? []
+  return {
+    days: trend.map((d) => d.day),
+    recognize: trend.map((d) => num(d.recognitions)),
+    consult: trend.map((d) => num(d.consults))
+  }
+})
+
+const latestRecognitions = computed(() => (overview.value?.pendingCorrections ?? []).slice(0, 4))
 const latestReports = computed(() =>
-  postReports.filter((r) => r.state === 'pending').slice(0, 3)
+  (overview.value?.recentReports ?? []).filter((r) => r.status === 'pending').slice(0, 3)
 )
+const recentFeedback = computed(() => (overview.value?.recentFeedback ?? []).slice(0, 4))
 
 // SVG 折线几何：560x220 视窗，左边距 36，右 12
 const X0 = 52
 const X1 = 548
 const Y0 = 155
 const Y1 = 30
-const MAX = 1600
+// 纵轴上限取实际峰值，避免真实数据量级偏小时折线贴底
+const seriesMax = computed(() => Math.max(1, ...usageSeries.value.recognize, ...usageSeries.value.consult))
 
 function xAt(i) {
-  const n = usageSeries.days.length
-  return X0 + (i * (X1 - X0)) / (n - 1)
+  const n = usageSeries.value.days.length
+  return n > 1 ? X0 + (i * (X1 - X0)) / (n - 1) : X0
 }
 function points(arr) {
-  return arr.map((v, i) => ({ x: xAt(i), y: Y0 - (v / MAX) * (Y0 - Y1) }))
+  return arr.map((v, i) => ({ x: xAt(i), y: Y0 - (v / seriesMax.value) * (Y0 - Y1) }))
 }
 function linePoints(arr) {
   return points(arr).map((p) => `${p.x},${p.y}`).join(' ')
@@ -276,7 +280,7 @@ function linePoints(arr) {
 
 .grid {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-top: 16px;
 }
@@ -334,26 +338,6 @@ function linePoints(arr) {
 .pt.coral { fill: var(--color-accent); }
 .pt.sage { fill: var(--color-sage); }
 .axis { font-size: 11px; fill: var(--color-faint); font-family: var(--font-body); }
-
-.breeds { display: flex; flex-direction: column; gap: 14px; }
-.breed { display: flex; align-items: center; gap: 12px; }
-.b-name { width: 88px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--color-ink-2); }
-.b-track {
-  flex: 1;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--color-surface-2);
-  overflow: hidden;
-}
-.b-bar {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--grad-sage, linear-gradient(90deg, #dfead8, #7e9b78));
-}
-.breed:nth-child(2) .b-bar { background: linear-gradient(90deg, #f6dcc4, #f2a65a); }
-.breed:nth-child(3) .b-bar { background: linear-gradient(90deg, #f6cdbb, #e8552b); }
-.b-pct { width: 40px; text-align: right; font-weight: 700; font-size: 13px; }
 
 /* ---------- 运营待办 ---------- */
 .todo-list { display: flex; flex-direction: column; gap: 9px; }

@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { getAuth } from '@shared/token'
 
 const routes = [
   {
@@ -30,9 +31,9 @@ const router = createRouter({
   routes
 })
 
-// 极简登录守卫（演示：localStorage 标记；接入后端后换 token 校验）
+// 登录守卫：以 accessToken 为准（token 里带 admin 角色，后端 /admin/* 会再次校验）
 router.beforeEach((to) => {
-  const authed = localStorage.getItem('petwise_admin_auth') === '1'
+  const authed = !!getAuth()?.accessToken
   if (to.name !== 'login' && !authed) return { name: 'login' }
   if (to.name === 'login' && authed) return { name: 'dashboard' }
   return true

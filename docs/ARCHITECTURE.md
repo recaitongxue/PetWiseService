@@ -586,7 +586,7 @@ services/api/
 | P7 编排 | compose 三套 + nginx + 三份 Dockerfile | ✅ |
 
 下一步建议从 **P6** 开始：按 openapi tag 逐个补 router，每个 router 照
-`app/api/routers/demo.py` 的写法（成功 `ok()`、失败 `AppError`、AI 调用走 clients）。
+`app/api/routers/home.py` 的写法（成功 `ok()`、失败 `AppError`、AI 调用走 clients）。
 
 ---
 

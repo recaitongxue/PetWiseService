@@ -131,6 +131,10 @@
             <router-link v-if="m.citeBreedId" :to="`/breed/${m.citeBreedId}`" class="cite-link">查看品种档案 →</router-link>
           </p>
         </template>
+        <div v-else-if="m.kind === 'photo'" class="photo-bubble">
+          <img :src="m.image" alt="问诊照片" @click="openPhoto(m.image)" />
+          <span class="pb-time num">{{ m.time }}</span>
+        </div>
         <ChatBubble
           v-else
           :role="m.role === 'me' ? 'me' : 'them'"
@@ -214,9 +218,17 @@
 
     <!-- 输入栏（固定底部，独立于滚动区） -->
     <div class="composer">
-      <button class="composer-icon" type="button" @click="attach" aria-label="上传照片">
+      <button class="composer-icon" type="button" @click="pickPhoto" aria-label="上传照片">
         <AppIcon name="image" :size="22" />
       </button>
+      <!-- 真实选图：上传后随主诉一起转交医生（规则分诊不识别图片，不做假装分析） -->
+      <input
+        ref="photoInput"
+        class="file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        @change="onPhotoPicked"
+      />
       <input
         v-model="input"
         class="composer-input"
@@ -241,18 +253,27 @@ import AppIcon from '@/components/icons/AppIcon.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
 import TriageCard from '@/components/TriageCard.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { consultSeed, consultSuggestions, pets, symptomGroups, triageRules, breedLibrary } from '@/data/mock'
-import { aiQuota, consumeAiQuota, recordsOf, recognitionHistory, reports } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { consultSeed, consultSuggestions, symptomGroups } from '@/data/static'
+import {
+  fetchPets, fetchBreedLibrary, fetchAiQuota, triageFree,
+  fetchHealthRecords, fetchRecognitionHistory, fetchReports
+} from '@/api/data'
+import { fileApi } from '@/api'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
 
-const petId = ref(pets[0].id)
-const curPet = computed(() => pets.find((p) => p.id === petId.value) || pets[0])
+// 数据加载前给一个安全的空形状，避免模板在数据到达前取不到字段
+const EMPTY_PET = { id: null, name: '', species: '', breed: '', breedId: null, age: '', gender: '', weight: '', healthScore: 0 }
+
+const pets = ref([])
+const petId = ref(null)
+const curPet = computed(() => pets.value.find((p) => p.id === petId.value) || pets.value[0] || EMPTY_PET)
 // RAG：当前品种的知识档案（没有则退化为通用建议）
+const breeds = ref([])
 const breedDoc = computed(
-  () => breedLibrary.find((b) => b.name === curPet.value.breed) || null
+  () => breeds.value.find((b) => b.id === curPet.value.breedId || b.name === curPet.value.breed) || null
 )
 
 const messages = ref([...consultSeed])
@@ -261,8 +282,14 @@ const typing = ref(false)
 const followups = ref([])
 const listEl = ref(null)
 const picked = ref([])
-const quota = ref(aiQuota())
+const quota = ref({ free: 3, used: 0, left: 3 })
 const lastTriage = ref(null)
+const attachedPhoto = ref(null)
+
+// 档案导入面板的数据源（原为同步 ops 读取，改为接口加载）
+const records = ref([])
+const recognitions = ref([])
+const reports = ref([])
 
 // 用户提到过的主诉，用于生成转诊病例摘要
 const complaints = ref([])
@@ -327,101 +354,20 @@ function toggleSymptom(s) {
   input.value = picked.value.join('、')
 }
 
-/* ---------- AI 分诊：关键词 → 分级 + 可能原因 + 建议动作 ---------- */
-
-function matchRule(text) {
-  const t = text.toLowerCase()
-  for (const r of triageRules) {
-    if (r.keywords.some((k) => t.includes(k))) return r
-  }
-  return null
-}
-
-function causesOf(text) {
-  const t = text.toLowerCase()
-  if (t.includes('耳朵') || t.includes('挠耳')) return ['耳螨', '真菌感染', '外耳道炎', '食物或环境过敏']
-  if (t.includes('呕吐') || t.includes('吐'))
-    return ['进食过快或饮食不当', '毛球症', '胃肠炎', '异物梗阻']
-  if (t.includes('软便') || t.includes('腹泻') || t.includes('拉稀'))
-    return ['换粮应激', '肠道寄生虫', '菌群失调', '食物不耐受']
-  if (t.includes('皮肤') || t.includes('红疹') || t.includes('脱毛') || t.includes('斑秃'))
-    return ['过敏性皮炎', '真菌感染', '跳蚤叮咬', '蠕形螨']
-  if (t.includes('食欲') || t.includes('不吃') || t.includes('挑食'))
-    return ['环境应激', '口腔或牙齿问题', '消化不适', '潜在发热性疾病']
-  if (t.includes('呼吸') || t.includes('咳嗽') || t.includes('喘'))
-    return ['上呼吸道感染', '过敏反应', '心脏问题', '气管异物']
-  if (t.includes('体重') || t.includes('胖') || t.includes('瘦'))
-    return ['喂食过量', '运动量不足', '内分泌异常', '年龄相关代谢变化']
-  if (t.includes('掉毛') || t.includes('皮屑'))
-    return ['季节性换毛', '营养不均衡', '皮肤疾病', '长期应激']
-  if (t.includes('眼') || t.includes('泪'))
-    return ['结膜炎', '角膜损伤', '鼻泪管阻塞', '异物刺激']
-  if (t.includes('跛') || t.includes('腿') || t.includes('瘸'))
-    return ['软组织挫伤', '关节问题', '骨折', '趾间炎']
-  return ['饮食与环境因素', '轻度感染', '应激反应', '品种相关易感问题']
-}
-
-function deptOf(text) {
-  const t = text.toLowerCase()
-  if (
-    t.includes('呼吸困难') || t.includes('抽搐') || t.includes('中毒') ||
-    t.includes('误食') || t.includes('骨折') || t.includes('大出血')
-  ) return 'er'
-  if (t.includes('皮肤') || t.includes('耳朵') || t.includes('掉毛') || t.includes('红疹') || t.includes('脱毛'))
-    return 'derma'
-  if (t.includes('跛') || t.includes('腿') || t.includes('伤口')) return 'surgery'
-  if (t.includes('眼') || t.includes('泪')) return 'eye'
-  if (t.includes('体重') || t.includes('胖') || t.includes('喂')) return 'nutrition'
-  if (t.includes('鸟') || t.includes('兔') || t.includes('龟')) return 'exotic'
-  return 'internal'
-}
-
-// 演示用：根据关键词 + 品种知识库（RAG）生成贴合的问诊回复（接入大模型后由后端流式返回）
-function aiReply(text) {
-  const t = text.toLowerCase()
-  // RAG 检索：把品种档案里的易患问题与护理要点带进回复
-  const rag = breedDoc.value
-    ? `另外，${breedDoc.value.name}${breedDoc.value.issues?.length ? '易患「' + breedDoc.value.issues.slice(0, 2).join('、') + '」' : ''}，日常护理上${breedDoc.value.care ? breedDoc.value.care.slice(0, 40) + '…' : '建议定期体检'}。`
-    : ''
-  if (t.includes('耳朵')) {
-    return '频繁挠耳朵常见原因有耳螨、外耳道炎或过敏。建议先观察耳道是否有黑褐色分泌物或异味，避免自行掏挖。若持续 2 天以上或宠物表现出疼痛，请预约线下检查。' + rag
-  }
-  if (t.includes('吃饭') || t.includes('食欲') || t.includes('不爱吃')) {
-    return '短期食欲下降可能与天气、应激或食物变更有关。可尝试少量多餐、温热食物。若超过 24 小时拒食、伴随呕吐或精神萎靡，请尽快问诊。' + rag
-  }
-  if (t.includes('疫苗')) {
-    return '幼猫/幼犬基础免疫通常在 6–8 周开始，每 2–4 周一针，完成基础免疫后每年加强。接种前需确保宠物健康、无寄生虫。' + rag
-  }
-  if (t.includes('皮肤') || t.includes('照片')) {
-    return '已收到照片区域描述。皮肤问题需关注红斑、脱毛、皮屑与抓挠频率。请保持患处干燥清洁，避免舔舐；若范围扩大或出现渗液，建议拍照后线下面诊。' + rag
-  }
-  return '我理解你的情况了。请补充一下宠物的年龄、品种、症状持续时间和精神状态，我会给出更有针对性的初步判断。注意：我的建议仅作参考，紧急情况请立即就医。' + rag
-}
-
-// 根据对话生成相关随访建议，让对话自然延续
-function genFollowups(text) {
-  const t = text.toLowerCase()
-  if (t.includes('耳朵')) return ['耳道怎么清洁？', '需要买耳药吗？', '多久能好？']
-  if (t.includes('吃饭') || t.includes('食欲')) return ['能喂什么开胃？', '要去医院吗？', '精神差怎么判断？']
-  if (t.includes('疫苗')) return ['接种记录怎么看', '接种后注意什么', '能洗澡吗？']
-  if (t.includes('皮肤')) return ['居家怎么护理', '要忌口吗', '什么时候必须面诊']
-  return ['帮我记录症状', '这种情况要去医院吗', '日常怎么护理']
-}
-
 /* ---------- 档案导入：结构化上下文带入对话 ---------- */
 
 const importOpen = ref(false)
 const impPicked = ref([])
 
 const impRecords = computed(() =>
-  recordsOf(petId.value)
+  records.value
     .slice()
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 4)
 )
-const impRecognitions = computed(() => recognitionHistory().slice(0, 2))
+const impRecognitions = computed(() => recognitions.value.slice(0, 2))
 const impReports = computed(() =>
-  reports()
+  reports.value
     .filter((r) => r.petId === petId.value)
     .slice(0, 2)
 )
@@ -440,13 +386,13 @@ function applyImport() {
   impPicked.value.forEach((key) => {
     const [kind, id] = key.split(':')
     if (kind === 'rec') {
-      const r = recordsOf(petId.value).find((x) => x.id === id)
+      const r = records.value.find((x) => x.id === id)
       if (r) lines.push(`${r.date} ${recordLabel(r.kind)}：${r.value}${r.note ? '（' + r.note + '）' : ''}`)
     } else if (kind === 'recog') {
-      const r = recognitionHistory().find((x) => x.id === id)
+      const r = recognitions.value.find((x) => x.id === id)
       if (r) lines.push(`${r.date} 拍照识别：${r.predicted}（置信度 ${Math.round(r.confidence * 100)}%）${r.corrected ? '，用户已手动纠正' : ''}`)
     } else if (kind === 'report') {
-      const r = reports().find((x) => x.id === id)
+      const r = reports.value.find((x) => x.id === id)
       if (r) lines.push(`${r.date} 问诊报告：${r.title}，分诊「${r.triage?.label || '已完成'}」`)
     }
   })
@@ -475,7 +421,7 @@ function applyImport() {
   }, 1100)
 }
 
-function send(preset) {
+async function send(preset) {
   const text = (preset ?? input.value).trim()
   if (!text || typing.value) return
 
@@ -493,60 +439,89 @@ function send(preset) {
   scrollToEnd()
 
   typing.value = true
-  scrollToEnd()
-  setTimeout(() => {
-    typing.value = false
-
-    const rule = matchRule(text)
-    if (rule) {
-      // 命中分诊规则 → 输出结构化分诊卡，而不是一段散文本
-      const triage = {
-        level: rule.level,
-        label: rule.label,
-        short: rule.short,
-        advice: rule.advice,
-        causes: causesOf(text),
-        actions: rule.actions,
-        confidence: rule.level === 'emergency' ? '高' : '中',
-        dept: deptOf(text)
-      }
-      lastTriage.value = triage
+  try {
+    // 分诊完全由服务端规则引擎产出（分级/病因/动作/科室/置信度/随访），前端只渲染
+    const res = await triageFree(text)
+    const bt = res?.triage || {}
+    if (bt.level) {
+      lastTriage.value = bt
       messages.value.push({
         role: 'ai',
         kind: 'triage',
         time: now(),
-        triage,
+        triage: bt,
         // RAG 引用：结论可溯源到品种档案
         cite: breedDoc.value ? `${breedDoc.value.name}品种档案 · 易患 ${breedDoc.value.issues?.slice(0, 2).join('、') || '—'}` : '',
         citeBreedId: breedDoc.value ? breedDoc.value.id : ''
       })
       followups.value = ['这种情况要立刻去医院吗', '现在能做些什么', '转真人医生看看']
     } else {
-      messages.value.push({ role: 'ai', text: aiReply(text), time: now() })
-      followups.value = genFollowups(text)
+      messages.value.push({
+        role: 'ai',
+        text: res?.reply || '请补充更具体的症状描述（部位、持续时间、精神状态），我来帮你初步判断。',
+        time: now()
+      })
+      followups.value = ['帮我记录症状', '这种情况要去医院吗', '日常怎么护理']
     }
 
-    quota.value = consumeAiQuota()
+    // 后端分诊后已扣减当日额度，用返回值覆盖本地
+    quota.value = res?.quota || quota.value
+  } catch (e) {
+    showToast(e?.message || 'AI 问诊失败，请重试', { type: 'error' })
+  } finally {
+    typing.value = false
     scrollToEnd()
-  }, 1300)
+  }
 }
 
-function attach() {
+/* ---------- 照片：真实选图上传（规则分诊不识别图片，转交医生时随附） ---------- */
+
+const photoInput = ref(null)
+const MAX_PHOTO_MB = 8
+
+function pickPhoto() {
   if (typing.value) return
-  messages.value.push({ role: 'me', text: '📷 已上传一张宠物照片', time: now() })
-  followups.value = []
-  scrollToEnd()
+  photoInput.value?.click()
+}
+
+function openPhoto(url) {
+  window.open(url, '_blank')
+}
+
+async function onPhotoPicked(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    showToast('请选择图片文件', { type: 'warn' })
+    return
+  }
+  if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+    showToast(`图片不能超过 ${MAX_PHOTO_MB}MB`, { type: 'warn' })
+    return
+  }
   typing.value = true
-  setTimeout(() => {
-    typing.value = false
+  scrollToEnd()
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const up = await fileApi.upload(fd, 'consult')
+    if (!up?.url) throw new Error('上传失败')
+    attachedPhoto.value = up.url
+    messages.value.push({ role: 'me', kind: 'photo', image: up.url, time: now() })
     messages.value.push({
       role: 'ai',
-      text: '收到照片。从画面看毛发状态尚可，请告诉我你最担心的部位，我帮你重点看看。',
+      text: '照片已存档，转真人医生时会随病历一起发送。请用文字描述你最担心的部位和持续时间，我来做初步分诊。',
       time: now()
     })
-    followups.value = genFollowups('照片')
+    followups.value = ['患处发红脱毛', '频繁挠抓或蹭蹭', '精神状态正常']
     scrollToEnd()
-  }, 1200)
+  } catch (err) {
+    showToast(err?.message || '照片上传失败', { type: 'error' })
+  } finally {
+    typing.value = false
+    scrollToEnd()
+  }
 }
 
 /**
@@ -564,6 +539,7 @@ function buildCaseSummary() {
     gender: curPet.value.gender,
     complaints: complaints.value.slice(),
     symptoms: picked.value.slice(),
+    photo: attachedPhoto.value || null,
     triage: lastTriage.value
       ? {
           level: lastTriage.value.level,
@@ -583,7 +559,43 @@ function goDoctors(dept) {
   router.push(dept ? { path: '/doctors', query: { dept } } : '/doctors')
 }
 
-onMounted(scrollToEnd)
+async function loadRecords() {
+  if (petId.value === null) return
+  try {
+    records.value = await fetchHealthRecords(petId.value)
+  } catch {
+    records.value = []
+  }
+}
+
+async function loadSideData() {
+  try {
+    recognitions.value = await fetchRecognitionHistory()
+  } catch {
+    recognitions.value = []
+  }
+  try {
+    reports.value = await fetchReports()
+  } catch {
+    reports.value = []
+  }
+}
+
+watch(petId, loadRecords)
+
+onMounted(async () => {
+  scrollToEnd()
+  try {
+    const [ps, bs, qs] = await Promise.all([fetchPets(), fetchBreedLibrary(), fetchAiQuota()])
+    pets.value = ps || []
+    breeds.value = bs || []
+    quota.value = qs || quota.value
+    if (pets.value.length && petId.value === null) petId.value = pets.value[0].id
+    await Promise.all([loadRecords(), loadSideData()])
+  } catch (e) {
+    showToast(e?.message || '问诊上下文加载失败', { type: 'error' })
+  }
+})
 </script>
 
 <style scoped>
@@ -880,6 +892,30 @@ onMounted(scrollToEnd)
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--color-border);
+}
+.file-input {
+  display: none;
+}
+.photo-bubble {
+  align-self: flex-end;
+  max-width: 72%;
+  margin: 6px 0;
+  position: relative;
+}
+.photo-bubble img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-md, 14px);
+  border: 1px solid var(--color-border);
+  cursor: zoom-in;
+}
+.photo-bubble .pb-time {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .composer-icon {
   width: 40px;

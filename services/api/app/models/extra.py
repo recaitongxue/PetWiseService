@@ -5,14 +5,13 @@ from __future__ import annotations
 import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     Float,
-    JSON,
     String,
-    Text,
-    Date,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -62,3 +61,28 @@ class AiUsage(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     stat_date: Mapped[Date] = mapped_column(Date, primary_key=True)
     used: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class Setting(Base):
+    """平台级配置（管理端「设置」页）：key-value，value 存 JSON。"""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(60), primary_key=True)
+    value: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WalletTx(Base):
+    """钱包流水：充值 / 提现 / 问诊消费，余额 = 各笔代数（以 User.balance 为权威值）。"""
+
+    __tablename__ = "wallet_txs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    type: Mapped[str] = mapped_column(String(16), default="topup")  # topup | withdraw | consult
+    amount: Mapped[float] = mapped_column(Float, default=0)  # 正数；withdraw/consult 为支出
+    note: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

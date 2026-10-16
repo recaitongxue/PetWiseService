@@ -211,8 +211,8 @@
                 <button class="plan-check" type="button" :aria-label="picked[i] ? '取消勾选' : '勾选'" @click="picked[i] = !picked[i]">
                   <AppIcon :name="picked[i] ? 'check' : 'plus'" :size="13" />
                 </button>
-                <span class="plan-dot" :class="(scheduleTypes[p.type] || {}).tone">
-                  <AppIcon :name="(scheduleTypes[p.type] || {}).icon || 'calendar'" :size="14" />
+                <span class="plan-dot" :class="typeOf(p.type).tone">
+                  <AppIcon :name="typeOf(p.type).icon" :size="14" />
                 </span>
                 <span class="plan-body">
                   <span class="plan-name">{{ p.title }}</span>
@@ -300,30 +300,32 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { pets, petSchedule, scheduleTypes, aiSchedulePlan } from '@/data/mock'
 import {
-  doneScheduleIds,
-  toggleScheduleDone,
-  customScheduleItems,
-  addScheduleItem,
-  removeScheduleItem,
-  customMemos,
-  addMemo,
-  removeMemo,
-  toggleMemoPin
-} from '@/data/ops'
-import { showToast } from '@/composables/toast'
+  fetchPets, fetchPetSchedule, fetchScheduleTypes, aiSchedulePlan, batchSchedule,
+  createSchedule, toggleScheduleDone, removeSchedule,
+  fetchMemos, addMemo, pinMemo, removeMemo
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const filter = ref('all')
 const typeFilter = ref('all')
 const addOpen = ref(false)
-const doneIds = ref(doneScheduleIds())
-const custom = ref(customScheduleItems())
-const memos = ref(customMemos())
+const memos = ref([])
 const memoText = ref('')
+
+const pets = ref([])
+// 后端按 petId 分组的日程（系统周期条目 + 自建条目已合并）
+const schedMap = ref({})
+const scheduleTypes = ref({})
+
+// 后端类型字典比 mock 多了 medication / feed：未知类型退到 other，图标与色调不落空
+const NEUTRAL_TYPE = { label: '日程', icon: 'calendar', tone: 'ink' }
+function typeOf(t) {
+  return scheduleTypes.value[t] || scheduleTypes.value.other || NEUTRAL_TYPE
+}
 
 const typeList = [
   { key: 'vaccine', label: '疫苗' },
@@ -343,7 +345,7 @@ const typeTabs = [
 /* ---------- AI 一键设置 ---------- */
 
 const aiOpen = ref(false)
-const aiPetId = ref(pets[0].id)
+const aiPetId = ref(null)
 const aiPhase = ref('idle') // idle → thinking → done
 const aiStep = ref('')
 const plan = ref([])
@@ -351,48 +353,61 @@ const picked = ref([])
 
 const AI_STEPS = ['正在读取宠物档案…', '匹配品种养护周期…', '核对疫苗与驱虫时间…', '生成计划中…']
 
+function aiPet() {
+  return pets.value.find((p) => p.id === aiPetId.value) || pets.value[0] || null
+}
+
 function openAI() {
-  aiPetId.value = filter.value === 'all' ? pets[0].id : filter.value
+  aiPetId.value = filter.value === 'all' ? (pets.value[0]?.id ?? null) : filter.value
   aiPhase.value = 'idle'
   plan.value = []
   picked.value = []
   aiOpen.value = true
 }
 
-function generate() {
-  const pet = pets.find((p) => p.id === aiPetId.value) || pets[0]
+async function generate() {
+  const pet = aiPet()
+  if (!pet) {
+    showToast('暂无宠物档案', { type: 'error' })
+    return
+  }
   aiPhase.value = 'thinking'
   let i = 0
   aiStep.value = AI_STEPS[0]
   const timer = setInterval(() => {
     i += 1
-    if (i < AI_STEPS.length) {
-      aiStep.value = AI_STEPS[i]
-    } else {
-      clearInterval(timer)
-      const existing = new Set(
-        customScheduleItems().filter((x) => x.petId === pet.id).map((x) => x.title)
-      )
-      plan.value = aiSchedulePlan(pet).filter((x) => !existing.has(x.title))
-      picked.value = plan.value.map(() => true)
-      aiPhase.value = 'done'
-    }
+    if (i < AI_STEPS.length) aiStep.value = AI_STEPS[i]
   }, 520)
+  try {
+    const res = await aiSchedulePlan(pet.id)
+    clearInterval(timer)
+    // 已存在的同名日程不再重复推荐
+    const existing = new Set((schedMap.value[pet.id] || []).map((x) => x.title))
+    plan.value = ((res && res.items) || []).filter((x) => !existing.has(x.title))
+    picked.value = plan.value.map(() => true)
+    aiPhase.value = 'done'
+  } catch (e) {
+    clearInterval(timer)
+    aiPhase.value = 'idle'
+    showToast(e?.message || '生成失败，请稍后重试', { type: 'error' })
+  }
 }
 
 const pickedCount = computed(() => picked.value.filter(Boolean).length)
 
-function applyPlan() {
-  const pet = pets.find((p) => p.id === aiPetId.value) || pets[0]
-  let n = 0
-  plan.value.forEach((p, i) => {
-    if (!picked.value[i]) return
-    addScheduleItem({ ...p, petId: pet.id })
-    n += 1
-  })
-  custom.value = customScheduleItems()
-  aiOpen.value = false
-  showToast(`已为「${pet.name}」添加 ${n} 条日程`, { type: 'success' })
+async function applyPlan() {
+  const pet = aiPet()
+  if (!pet) return
+  const items = plan.value.filter((_, i) => picked.value[i])
+  try {
+    const res = await batchSchedule(pet.id, items)
+    const n = (res && res.created && res.created.length) || items.length
+    schedMap.value = await fetchPetSchedule()
+    aiOpen.value = false
+    showToast(`已为「${pet.name}」添加 ${n} 条日程`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '添加失败', { type: 'error' })
+  }
 }
 
 /* ---------- 列表数据 ---------- */
@@ -408,25 +423,24 @@ function daysOf(iso) {
   return Math.round((new Date(iso) - today) / 86400000)
 }
 
-// 合并内置日程与用户自定义日程
+// 后端已合并「系统周期条目 + 自建条目」，完成态直接取 item.done
 const rows = computed(() => {
   const out = []
-  const push = (petId, s) => {
-    const meta = scheduleTypes[s.type] || scheduleTypes.other
-    const pet = pets.find((p) => p.id === petId)
-    out.push({
-      ...s,
-      petId,
-      petName: pet ? pet.name : '未指定',
-      icon: meta.icon,
-      tone: meta.tone,
-      typeLabel: meta.label
+  Object.keys(schedMap.value || {}).forEach((pid) => {
+    ;(schedMap.value[pid] || []).forEach((s) => {
+      const meta = typeOf(s.type)
+      const petId = s.petId ?? Number(pid)
+      const pet = pets.value.find((p) => p.id === petId)
+      out.push({
+        ...s,
+        petId,
+        petName: s.petName || (pet ? pet.name : '未指定'),
+        icon: meta.icon,
+        tone: meta.tone,
+        typeLabel: meta.label
+      })
     })
-  }
-  Object.keys(petSchedule).forEach((pid) => {
-    petSchedule[pid].forEach((s) => push(pid, s))
   })
-  custom.value.forEach((s) => push(s.petId, s))
 
   return out
     .filter((x) => filter.value === 'all' || x.petId === filter.value)
@@ -437,8 +451,7 @@ const rows = computed(() => {
         ...x,
         overdue: diff < 0,
         days: diff,
-        dateText: fmtDate(x.date, diff),
-        done: doneIds.value.includes(x.id)
+        dateText: fmtDate(x.date, diff)
       }
     })
     .sort((a, b) => {
@@ -462,39 +475,69 @@ const pending = computed(() => rows.value.filter((x) => !x.done))
 const done = computed(() => rows.value.filter((x) => x.done))
 const overdue = computed(() => pending.value.filter((x) => x.overdue))
 
-function toggle(it) {
-  const nowDone = toggleScheduleDone(it.id)
-  doneIds.value = doneScheduleIds()
-  showToast(nowDone ? `已完成「${it.title}」` : `已撤销「${it.title}」`, {
-    type: nowDone ? 'success' : 'info'
-  })
+async function toggle(it) {
+  const next = !it.done
+  try {
+    await toggleScheduleDone(it.id, next)
+    schedMap.value = await fetchPetSchedule()
+    showToast(next ? `已完成「${it.title}」` : `已撤销「${it.title}」`, {
+      type: next ? 'success' : 'info'
+    })
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'error' })
+  }
 }
 
-function remove(it) {
-  removeScheduleItem(it.id)
-  custom.value = customScheduleItems()
-  showToast('日程已删除', { type: 'info' })
+async function remove(it) {
+  try {
+    await removeSchedule(it.id)
+    schedMap.value = await fetchPetSchedule()
+    showToast('日程已删除', { type: 'info' })
+  } catch (e) {
+    showToast(e?.message || '删除失败', { type: 'error' })
+  }
 }
 
 /* ---------- 备忘录 ---------- */
 
-function submitMemo() {
+async function loadMemos() {
+  const list = await fetchMemos()
+  // 后端只返回 time（'YYYY-MM-DD HH:mm'），补 createdAt 供模板时间格式化使用
+  memos.value = (list || []).map((m) => ({
+    ...m,
+    createdAt: m.createdAt || Date.parse(String(m.time || '').replace(' ', 'T')) || Date.now()
+  }))
+}
+
+async function submitMemo() {
   const text = memoText.value.trim()
   if (!text) return
-  addMemo(text, filter.value === 'all' ? '' : filter.value)
-  memos.value = customMemos()
-  memoText.value = ''
-  showToast('已记到备忘录', { type: 'success' })
+  try {
+    await addMemo({ text, petId: filter.value === 'all' ? null : filter.value })
+    await loadMemos()
+    memoText.value = ''
+    showToast('已记到备忘录', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '保存失败', { type: 'error' })
+  }
 }
 
-function del(m) {
-  removeMemo(m.id)
-  memos.value = customMemos()
+async function del(m) {
+  try {
+    await removeMemo(m.id)
+    await loadMemos()
+  } catch (e) {
+    showToast(e?.message || '删除失败', { type: 'error' })
+  }
 }
 
-function pin(m) {
-  toggleMemoPin(m.id)
-  memos.value = customMemos()
+async function pin(m) {
+  try {
+    await pinMemo(m.id, !m.pinned)
+    await loadMemos()
+  } catch (e) {
+    showToast(e?.message || '操作失败', { type: 'error' })
+  }
 }
 
 function memoTime(ts) {
@@ -511,34 +554,62 @@ const form = reactive({
   time: '',
   cycle: '',
   note: '',
-  petId: pets[0].id
+  petId: ''
 })
 
 const canSubmit = computed(() => form.title.trim() && form.date)
 
 function openAdd() {
-  form.petId = filter.value === 'all' ? pets[0].id : filter.value
+  form.petId = filter.value === 'all' ? (pets.value[0]?.id ?? '') : filter.value
   addOpen.value = true
 }
 
-function submit() {
-  addScheduleItem({
-    type: form.type,
-    title: form.title.trim(),
-    date: form.date,
-    time: form.time || '',
-    cycle: form.cycle || '',
-    note: form.note.trim(),
-    petId: form.petId
-  })
-  custom.value = customScheduleItems()
-  addOpen.value = false
-  form.title = ''
-  form.note = ''
-  form.time = ''
-  form.cycle = ''
-  showToast('日程已保存', { type: 'success' })
+async function submit() {
+  try {
+    await createSchedule({
+      type: form.type,
+      title: form.title.trim(),
+      date: form.date,
+      time: form.time || '',
+      cycle: form.cycle || '',
+      note: form.note.trim(),
+      petId: form.petId
+    })
+    schedMap.value = await fetchPetSchedule()
+    addOpen.value = false
+    form.title = ''
+    form.note = ''
+    form.time = ''
+    form.cycle = ''
+    showToast('日程已保存', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '保存失败', { type: 'error' })
+  }
 }
+
+onMounted(async () => {
+  try {
+    const [ps, sm, tm] = await Promise.all([
+      fetchPets(),
+      fetchPetSchedule(),
+      fetchScheduleTypes()
+    ])
+    pets.value = ps || []
+    schedMap.value = sm || {}
+    scheduleTypes.value = tm || {}
+    if (pets.value.length) {
+      form.petId = pets.value[0].id
+      aiPetId.value = pets.value[0].id
+    }
+  } catch (e) {
+    showToast(e?.message || '日程加载失败', { type: 'error' })
+  }
+  try {
+    await loadMemos()
+  } catch {
+    memos.value = []
+  }
+})
 </script>
 
 <style scoped>

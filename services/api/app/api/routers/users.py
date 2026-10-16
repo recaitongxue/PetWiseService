@@ -11,14 +11,35 @@ from app.core.deps import CurrentUser, DbSession
 from app.core.envelope import ok
 from app.core.errors import AppError, ErrorCode
 from app.core.serialize import public_user
+from app.core.sms import verify_code
+from app.models.consult_model import ConsultMessage, ConsultOrder, ConsultReport
+from app.models.doctor import DoctorReview
+from app.models.extra import (
+    AiUsage,
+    AnnouncementDismiss,
+    Memo,
+    Recognition,
+    WalletTx,
+)
 from app.models.feedback import Feedback
 from app.models.health import HealthRecord
 from app.models.pet import Pet
 from app.models.schedule import ScheduleItem
+from app.models.social import (
+    Comment,
+    Contact,
+    Conversation,
+    Favorite,
+    Message,
+    Post,
+    PostLike,
+    PostReport,
+)
 from app.models.user import User
 from app.schemas.user import (
     BindingsIn,
     ChangePasswordIn,
+    ChangePhoneIn,
     PreferencesIn,
     PreferencesOut,
     default_prefs,
@@ -121,12 +142,11 @@ def get_balance(user: CurrentUser, db: DbSession) -> dict:
     return ok({"balance": float(u.balance or 0)})
 
 
-@router.put("/password", summary="修改密码（演示：sha256 存储）")
+@router.put("/password", summary="修改密码（sha256 存储）")
 def change_password(body: ChangePasswordIn, user: CurrentUser, db: DbSession) -> dict:
     u = _get_user(db, _uid(user))
-    if u.password_hash:
-        if _sha(body.old_password) != u.password_hash:
-            raise AppError(ErrorCode(41003), "原密码错误")
+    if u.password_hash and _sha(body.old_password) != u.password_hash:
+        raise AppError(ErrorCode(41003), "原密码错误")
     if body.old_password == body.new_password:
         raise AppError(ErrorCode(42203), "新密码不能与原密码相同")
     u.password_hash = _sha(body.new_password)
@@ -134,15 +154,14 @@ def change_password(body: ChangePasswordIn, user: CurrentUser, db: DbSession) ->
     return ok({"changed": True})
 
 
-@router.post("/phone", summary="更换手机号（演示：校验验证码后直接换绑）")
-def change_phone(body: dict, user: CurrentUser, db: DbSession) -> dict:
-    new_phone = str(body.get("newPhone", ""))
-    if not new_phone or not new_phone.startswith("1") or len(new_phone) != 11:
-        raise AppError(ErrorCode.BAD_REQUEST, "手机号格式不正确")
-    if db.query(User).filter(User.phone == new_phone).first():
+@router.post("/phone", summary="更换手机号（需验证新手机号收到的验证码）")
+def change_phone(body: ChangePhoneIn, user: CurrentUser, db: DbSession) -> dict:
+    if not verify_code(db, body.phone, body.code):
+        raise AppError(ErrorCode.BAD_REQUEST, "验证码错误或已过期")
+    if db.query(User).filter(User.phone == body.phone).first():
         raise AppError(ErrorCode.CONFLICT, "该手机号已被占用")
     u = _get_user(db, _uid(user))
-    u.phone = new_phone
+    u.phone = body.phone
     db.commit()
     return ok(public_user(u))
 
@@ -162,16 +181,36 @@ def set_binding(provider: str, body: BindingsIn, user: CurrentUser, db: DbSessio
     return ok(PreferencesOut(**cur).model_dump())
 
 
-@router.post("/deactivate", summary="注销账号（演示：余额清零后可清除数据）")
+@router.post("/deactivate", summary="注销账号（余额清零后清除全部个人数据）")
 def deactivate(body: dict, user: CurrentUser, db: DbSession) -> dict:
     u = _get_user(db, _uid(user))
     if float(u.balance or 0) > 0:
         raise AppError(ErrorCode.CONFLICT, f"账户仍有余额 ¥{u.balance:.2f}，请先提现或消费后再注销")
 
-    db.query(ScheduleItem).filter(ScheduleItem.owner_id == u.id).delete()
-    db.query(HealthRecord).filter(HealthRecord.owner_id == u.id).delete()
-    db.query(Pet).filter(Pet.owner_id == u.id).update({Pet.deleted_at: datetime.datetime.now()})
-    db.query(Feedback).filter(Feedback.user_id == u.id).delete()
+    uid = u.id
+    order_ids = db.query(ConsultOrder.id).filter(ConsultOrder.user_id == uid).scalar_subquery()
+    db.query(ConsultMessage).filter(ConsultMessage.order_id.in_(order_ids)).delete(synchronize_session=False)
+    db.query(ConsultReport).filter(ConsultReport.user_id == uid).delete()
+    db.query(ConsultOrder).filter(ConsultOrder.user_id == uid).delete()
+    db.query(Message).filter(Message.owner_id == uid).delete()
+    db.query(Conversation).filter(Conversation.owner_id == uid).delete()
+    db.query(Contact).filter(Contact.owner_id == uid).delete()
+    db.query(Comment).filter(Comment.user_id == uid).delete()
+    db.query(PostReport).filter(PostReport.user_id == uid).delete()
+    db.query(Post).filter(Post.user_id == uid).delete()
+    db.query(PostLike).filter(PostLike.user_id == uid).delete()
+    db.query(DoctorReview).filter(DoctorReview.user_id == uid).delete()
+    db.query(Favorite).filter(Favorite.user_id == uid).delete()
+    db.query(Recognition).filter(Recognition.user_id == uid).delete()
+    db.query(Memo).filter(Memo.user_id == uid).delete()
+    db.query(WalletTx).filter(WalletTx.user_id == uid).delete()
+    db.query(AiUsage).filter(AiUsage.user_id == uid).delete()
+    db.query(AnnouncementDismiss).filter(AnnouncementDismiss.user_id == uid).delete()
+    db.query(ScheduleItem).filter(ScheduleItem.owner_id == uid).delete()
+    db.query(HealthRecord).filter(HealthRecord.owner_id == uid).delete()
+    db.query(Pet).filter(Pet.owner_id == uid).update({Pet.deleted_at: datetime.datetime.now()})
+    db.query(Feedback).filter(Feedback.user_id == uid).delete()
+
     u.nickname = "已注销用户"
     u.password_hash = None
     u.prefs = default_prefs()

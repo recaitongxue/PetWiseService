@@ -101,11 +101,11 @@ class AppError(Exception):
 
     # ── 常用构造糖 ────────────────────────────────────────────
     @classmethod
-    def bad_request(cls, message: str = "请求参数错误") -> "AppError":
+    def bad_request(cls, message: str = "请求参数错误") -> AppError:
         return cls(ErrorCode.BAD_REQUEST, message)
 
     @classmethod
-    def validation_failed(cls, details: list[dict[str, str]]) -> "AppError":
+    def validation_failed(cls, details: list[dict[str, str]]) -> AppError:
         """参数校验失败，details 形如 [{field: 'phone', issue: '格式不正确'}]。"""
         return cls(
             ErrorCode.VALIDATION_FAILED,
@@ -114,37 +114,37 @@ class AppError(Exception):
         )
 
     @classmethod
-    def unauthorized(cls, message: str = "请先登录") -> "AppError":
+    def unauthorized(cls, message: str = "请先登录") -> AppError:
         return cls(ErrorCode.UNAUTHORIZED, message)
 
     @classmethod
-    def token_expired(cls) -> "AppError":
+    def token_expired(cls) -> AppError:
         return cls(ErrorCode.TOKEN_EXPIRED, "登录已过期")
 
     @classmethod
-    def forbidden(cls, message: str = "无权限访问") -> "AppError":
+    def forbidden(cls, message: str = "无权限访问") -> AppError:
         return cls(ErrorCode.FORBIDDEN, message)
 
     @classmethod
-    def not_found(cls, resource: str = "资源") -> "AppError":
+    def not_found(cls, resource: str = "资源") -> AppError:
         return cls(ErrorCode.NOT_FOUND, f"{resource}不存在")
 
     @classmethod
-    def conflict(cls, message: str = "资源冲突") -> "AppError":
+    def conflict(cls, message: str = "资源冲突") -> AppError:
         return cls(ErrorCode.CONFLICT, message)
 
     @classmethod
-    def ai_quota_exhausted(cls) -> "AppError":
+    def ai_quota_exhausted(cls) -> AppError:
         return cls(ErrorCode.AI_QUOTA_EXHAUSTED, "今日 AI 问诊额度已用尽，建议转诊真人医生")
 
     @classmethod
-    def consult_state(cls, message: str = "当前问诊单状态不允许该操作") -> "AppError":
+    def consult_state(cls, message: str = "当前问诊单状态不允许该操作") -> AppError:
         return cls(ErrorCode.CONSULT_STATE_INVALID, message)
 
     @classmethod
-    def downstream_unavailable(cls, service: str) -> "AppError":
+    def downstream_unavailable(cls, service: str) -> AppError:
         return cls(ErrorCode.DOWNSTREAM_UNAVAILABLE, f"{service} 服务暂不可用")
 
     @classmethod
-    def downstream_timeout(cls, service: str) -> "AppError":
+    def downstream_timeout(cls, service: str) -> AppError:
         return cls(ErrorCode.DOWNSTREAM_TIMEOUT, f"{service} 响应超时")

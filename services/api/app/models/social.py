@@ -5,11 +5,11 @@ from __future__ import annotations
 import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
     Integer,
-    JSON,
     String,
     Text,
     func,
@@ -76,9 +76,19 @@ class Post(Base):
     text: Mapped[str] = mapped_column(Text)
     images: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     tags: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
-    likes: Mapped[int] = mapped_column(Integer, default=0)
+    likes: Mapped[int] = mapped_column(Integer, default=0)  # 点赞总数（PostLike 行数冗余计数）
     comments: Mapped[int] = mapped_column(Integer, default=0)
-    liked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PostLike(Base):
+    """帖子点赞：每用户一行，liked 状态按当前用户实时计算。"""
+
+    __tablename__ = "post_likes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    post_id: Mapped[str] = mapped_column(String(32), index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -105,4 +115,22 @@ class Favorite(Base):
     title: Mapped[str] = mapped_column(String(100))
     desc: Mapped[str | None] = mapped_column(String(200), nullable=True)
     route: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PostReport(Base):
+    """社区帖子举报：App 端提交，管理端「内容审核」处理。"""
+
+    __tablename__ = "post_reports"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    post_id: Mapped[str] = mapped_column(String(32), index=True)
+    post_author: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    post_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    # reason: spam 广告垃圾 | abuse 辱骂 | inappropriate 不宜内容 | other 其他
+    reason: Mapped[str] = mapped_column(String(30), default="other")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # status: pending 待处理 | resolved 已处理（保留）| rejected 已驳回
+    status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

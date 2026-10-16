@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,7 +23,7 @@ class Envelope(BaseModel, Generic[T]):
 
     code: int = Field(default=0, description="0 成功，非 0 见契约错误码表")
     message: str = Field(default="ok")
-    data: Optional[T] = Field(default=None)
+    data: T | None = Field(default=None)
     timestamp: int = Field(default_factory=lambda: int(time.time() * 1000))
     traceId: str = Field(default_factory=trace_id_var.get)
 

@@ -1,35 +1,36 @@
 """拍照识别路由：图片上传即识别、历史列表、异步任务查询、用户纠正回流。
 
-对应 recognitionApi.* → /recognitions、/recognitions/tasks/{taskId}、/recognitions/{id}/correction。
-识别逻辑为演示实现：从 breeds 表按 species 取一个品种作为结果（本地无视觉模型依赖），
-返回与前端契约一致的字段；用户纠正后标记 status=review，供管理端审核回流训练集。
+**当前为演示识别**：服务端未接入视觉模型，按 species 从品种库取一个品种作为结果，
+响应中 ``demo: true`` 明确标注，前端展示「演示识别」徽标。接入真实模型时
+替换 ``_demo_recognize`` 即可，契约不变。用户纠正后标记 status=review，
+供管理端审核回流训练集。
 """
 
 from __future__ import annotations
 
-import datetime
-import os
 import time
 
-from fastapi import APIRouter, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, File, Form, Query, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.envelope import ok, paged
 from app.core.errors import AppError, ErrorCode
+from app.core.storage import save_upload
 from app.models.breed import Breed
-from app.models.extra import Recognition
+from app.models.extra import Recognition, Setting
 
 router = APIRouter(prefix="/recognitions", tags=["recognitions"])
-
-_UPLOAD_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
-)
 
 _SCI = {"dog": "Canis lupus familiaris", "cat": "Felis catus"}
 
 
 def _uid(user: CurrentUser) -> int:
     return int(user.user_id)
+
+
+def _feature_enabled(db: DbSession) -> bool:
+    row = db.get(Setting, "platform")
+    return bool((row.value if row and isinstance(row.value, dict) else {}).get("recognizeEnabled", True))
 
 
 def _breed_profile(b: Breed) -> dict:
@@ -84,7 +85,7 @@ def _demo_recognize(db: DbSession, species: str | None) -> dict:
     ]
     return {
         "title": breed.name,
-        "sci": breed.traits.get("sci") if breed.traits else None or _SCI.get(breed.species, ""),
+        "sci": (breed.traits or {}).get("sci") or _SCI.get(breed.species, ""),
         "confidence": 0.92,
         "species": breed.species,
         "breedId": breed.id,
@@ -94,34 +95,19 @@ def _demo_recognize(db: DbSession, species: str | None) -> dict:
     }
 
 
-def _save_file(file: UploadFile) -> tuple[str, str]:
-    os.makedirs(_UPLOAD_DIR, exist_ok=True)
-    ext = os.path.splitext(file.filename or "img.jpg")[1] or ".jpg"
-    sub = datetime.date.today().isoformat()
-    rel_dir = os.path.join("uploads", sub)
-    abs_dir = os.path.join(_UPLOAD_DIR, sub)
-    os.makedirs(abs_dir, exist_ok=True)
-    fname = f"{int(time.time() * 1000)}{ext}"
-    abs_path = os.path.join(abs_dir, fname)
-    data = file.file.read()
-    with open(abs_path, "wb") as f:
-        f.write(data)
-    return rel_dir.replace(os.sep, "/") + "/" + fname, str(len(data))
-
-
-@router.post("", summary="上传图片并识别")
+@router.post("", summary="上传图片并识别（演示识别，结果带 demo 标记）")
 async def recognize(
     user: CurrentUser,
     db: DbSession,
     file: UploadFile | None = File(default=None),
     pet_id: int | None = Form(default=None),
     species: str | None = Form(default=None),
-    request: Request = None,
 ) -> dict:
+    if not _feature_enabled(db):
+        raise AppError(ErrorCode.FORBIDDEN, "识别功能维护中，暂不可用")
     image_ref = None
     if file is not None and file.filename:
-        rel, _ = _save_file(file)
-        image_ref = rel
+        image_ref, _ = save_upload(file)
     result = _demo_recognize(db, species)
     rec = Recognition(
         id=f"rc{int(time.time() * 1000)}",
@@ -143,6 +129,7 @@ async def recognize(
     out["id"] = rec.id
     out["imageRef"] = image_ref
     out["time"] = rec.created_at.strftime("%Y-%m-%d %H:%M")
+    out["demo"] = True  # 未接入视觉模型，明确告知前端
     return ok(out)
 
 

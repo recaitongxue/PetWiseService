@@ -20,9 +20,12 @@ def _uid(user: CurrentUser) -> int:
 
 
 def _shape(f: Favorite) -> dict:
+    # targetId 必须返回：前端删除走 DELETE /favorites/{kind}/{target_id}，
+    # 若不带该字段只能用行 id 去删，会匹配不到而静默失败。
     return {
         "id": f.id,
         "kind": f.kind,
+        "targetId": f.target_id,
         "title": f.title,
         "desc": f.desc,
         "route": f.route,

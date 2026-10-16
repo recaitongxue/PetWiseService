@@ -7,16 +7,20 @@
 
       <form class="form" @submit.prevent="submit">
         <label class="field">
-          <span>账号</span>
-          <input v-model.trim="account" type="text" placeholder="admin" autocomplete="username" />
+          <span>管理员手机号</span>
+          <input v-model.trim="account" type="tel" inputmode="numeric" maxlength="11"
+                 placeholder="13900000000" autocomplete="username" />
         </label>
         <label class="field">
-          <span>密码</span>
-          <input v-model.trim="pwd" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <span>验证码</span>
+          <input v-model.trim="pwd" type="text" inputmode="numeric" maxlength="6"
+                 placeholder="888888" autocomplete="one-time-code" />
         </label>
         <p v-if="err" class="err">{{ err }}</p>
-        <button class="btn accent submit" type="submit">登录控制台</button>
-        <p class="hint">演示账号：admin / petwise</p>
+        <button class="btn accent submit" type="submit" :disabled="loading">
+          {{ loading ? '登录中…' : '登录控制台' }}
+        </button>
+        <p class="hint">演示：管理员手机号 13900000000，验证码 888888</p>
       </form>
     </div>
     <p class="foot">CV 识别 · 大模型问诊 · 社区运营 —— 三位一体管理</p>
@@ -27,19 +31,44 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
+import { authApi } from '@/api'
+import { setTokens } from '@shared/token'
 
 const router = useRouter()
 const account = ref('')
 const pwd = ref('')
 const err = ref('')
+const loading = ref(false)
 
-function submit() {
-  // 演示鉴权：接入后端后替换为登录接口
-  if (account.value === 'admin' && pwd.value === 'petwise') {
-    localStorage.setItem('petwise_admin_auth', '1')
+async function submit() {
+  err.value = ''
+  if (!/^1\d{10}$/.test(account.value)) {
+    err.value = '请输入 11 位管理员手机号'
+    return
+  }
+  if (!/^\d{6}$/.test(pwd.value)) {
+    err.value = '请输入 6 位验证码'
+    return
+  }
+  loading.value = true
+  try {
+    const res = await authApi.login({ mode: 'sms', phone: account.value, code: pwd.value })
+    setTokens({
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      user: res.user
+    })
+    // 必须是 admin 角色才能进控制台，否则提示无权限
+    const me = await authApi.me().catch(() => null)
+    if (me && me.role !== 'admin') {
+      err.value = '该账号没有管理端权限'
+      return
+    }
     router.replace('/dashboard')
-  } else {
-    err.value = '账号或密码不正确（演示：admin / petwise）'
+  } catch (e) {
+    err.value = e?.message || '登录失败，请重试'
+  } finally {
+    loading.value = false
   }
 }
 </script>

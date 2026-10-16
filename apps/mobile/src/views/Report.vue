@@ -80,13 +80,13 @@
     <section class="blk" v-reveal="{ delay: 60 }">
       <h3 class="blk-h">分诊结论</h3>
       <TriageCard
-        :level="r.triage.level"
-        :label="r.triage.label"
-        :short="r.triage.short"
-        :advice="r.triage.advice"
-        :causes="r.triage.causes || []"
-        :actions="r.triage.actions || []"
-        :confidence="r.triage.level === 'emergency' ? '高' : '中'"
+        :level="tri.level"
+        :label="tri.label"
+        :short="tri.short"
+        :advice="tri.advice"
+        :causes="tri.causes || []"
+        :actions="tri.actions || []"
+        :confidence="tri.level === 'emergency' ? '高' : '中'"
         @escalate="toDoctors"
       />
 
@@ -94,16 +94,16 @@
       <div class="score">
         <header class="score-h" @click="scoreOpen = !scoreOpen">
           <span class="score-t">评分依据</span>
-          <span class="score-n num">{{ r.triage.score }} 分</span>
+          <span class="score-n num">{{ tri.score }} 分</span>
           <AppIcon name="back" :size="14" class="score-arrow" :class="{ up: scoreOpen }" />
         </header>
         <ul v-if="scoreOpen" class="factors">
-          <li v-for="(f, i) in r.triage.factors || []" :key="i" :class="{ danger: f.danger }">
+          <li v-for="(f, i) in tri.factors || []" :key="i" :class="{ danger: f.danger }">
             <span class="f-text">{{ f.text }}</span>
             <span v-if="f.danger" class="f-w danger">急诊</span>
             <span v-else class="f-w num">+{{ f.w }}</span>
           </li>
-          <li v-if="!(r.triage.factors || []).length" class="f-empty">
+          <li v-if="!(tri.factors || []).length" class="f-empty">
             未记录到加分项，按最低风险处理
           </li>
         </ul>
@@ -111,10 +111,10 @@
     </section>
 
     <!-- 医生建议（真人问诊） -->
-    <section class="blk" v-if="r.doctorAdvice?.length" v-reveal="{ delay: 80 }">
+    <section class="blk" v-if="adviceList.length" v-reveal="{ delay: 80 }">
       <h3 class="blk-h">医生建议</h3>
       <ul class="advice">
-        <li v-for="(a, i) in r.doctorAdvice" :key="i">
+        <li v-for="(a, i) in adviceList" :key="i">
           <span class="adv-n num">{{ i + 1 }}</span>
           <span>{{ a }}</span>
         </li>
@@ -141,7 +141,7 @@
     <!-- 复查计划 -->
     <section class="blk" v-reveal="{ delay: 100 }">
       <h3 class="blk-h">复查计划</h3>
-      <p class="follow">{{ r.triage.followUp }}</p>
+      <p class="follow">{{ tri.followUp }}</p>
     </section>
 
     <p class="disclaim">
@@ -163,17 +163,16 @@
     </div>
   </section>
 
-  <p v-else class="empty">报告不存在或已被清除。</p>
+  <p v-else-if="loaded" class="empty">报告不存在或已被清除。</p>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import TriageCard from '@/components/TriageCard.vue'
-import { reportById, archiveReport, remindFromReport } from '@/data/ops'
-import { pets } from '@/data/mock'
-import { showToast } from '@/composables/toast'
+import { fetchReport, archiveReport, remindReport, fetchPets } from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
@@ -181,25 +180,62 @@ function goBack() {
   router.push('/records')
 }
 
-const r = ref(reportById(route.params.id))
+const r = ref(null)
+const loaded = ref(false)
 const scoreOpen = ref(true)
+const pets = ref([])
 
-const petInfo = computed(() => pets.find((p) => p.id === r.value?.petId) || {})
+// 后端报告中 triage 可能为空（人工补录的报告），统一兜底避免页面崩
+const tri = computed(() => r.value?.triage || {})
+// 后端 doctorAdvice 为纯文本，老的 mock 是数组，这里统一成列表渲染
+const adviceList = computed(() => {
+  const a = r.value?.doctorAdvice
+  if (!a) return []
+  if (Array.isArray(a)) return a
+  return String(a)
+    .split('\n')
+    .map((s) => s.replace(/^\s*\d+[.、)]\s*/, '').trim())
+    .filter(Boolean)
+})
 
-const reload = () => (r.value = reportById(route.params.id))
+const petInfo = computed(() => pets.value.find((p) => p.id === r.value?.petId) || {})
 
-function archive() {
-  if (archiveReport(r.value, r.value.petId)) {
-    reload()
-    showToast('已写入健康档案，可在宠物档案页查看', { type: 'success' })
+const reload = async () => {
+  try {
+    r.value = await fetchReport(route.params.id)
+  } catch {
+    r.value = null
   }
 }
 
-function remind() {
-  const n = remindFromReport(r.value, r.value.petId)
-  if (n) {
-    reload()
-    showToast(`已生成 ${n} 条提醒，可在日程页查看`, { type: 'success' })
+onMounted(async () => {
+  try {
+    pets.value = (await fetchPets()) || []
+  } catch {
+    pets.value = []
+  }
+  await reload()
+  loaded.value = true
+})
+
+async function archive() {
+  try {
+    await archiveReport(r.value.id)
+    await reload()
+    showToast('已写入健康档案，可在宠物档案页查看', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '存档失败', { type: 'error' })
+  }
+}
+
+async function remind() {
+  try {
+    const res = await remindReport(r.value.id)
+    await reload()
+    const n = (res?.items || []).length
+    if (n) showToast(`已生成 ${n} 条提醒，可在日程页查看`, { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '提醒设置失败', { type: 'error' })
   }
 }
 

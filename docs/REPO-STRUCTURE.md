@@ -85,7 +85,7 @@ PetWiseService/
 | `app/ws/` ⬜ | WebSocket 推送 | 问诊流式帧(见 `events/frames.yaml`) | 业务逻辑 |
 | `app/tasks/` ⬜ | 后台任务 | 定时提醒/报表 | 重 CPU 任务 |
 
-**现状**：`core`、`clients`、`middleware`、`exception_handlers`、`main` 已就位并可启动；`routers/` 目前仅有 `health.py` 与 `demo.py`，**52 个业务接口(11 个 tag)待按 `API.md` 铺开**；`domain/services/repos/models` 为占位空包，等待按 tag 填充；`migrations/` 仅有占位，缺 Alembic 迁移。
+**现状**：`core`、`clients`、`middleware`、`exception_handlers`、`main` 已就位并可启动；`routers/` 已按 `API.md` 铺开 17 个业务 router（auth / admin / users / pets / schedule / announcements / feedback / breeds / consult / doctors / community / contacts / conversations / favorites / files / home / recognitions，全部联通 MySQL 并有冒烟覆盖）；`domain/services/repos/models` 为占位空包；`migrations/` 仅有占位，生产化需补 Alembic 迁移。
 
 #### 2.2.2 `services/vision/` —— 视觉推理服务 🟡
 **有什么用**：无状态、常驻、毫秒级响应的图像推理。加载 `cv/artifacts` 导出的 `.onnx` 权重，对外提供拍照识别(物种/品种/皮肤病)、排泄物/呕吐物分析、鼻纹身份等。

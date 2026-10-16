@@ -154,24 +154,30 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import ChatBubble from '@/components/ChatBubble.vue'
-import { doctors, pets, consultModes } from '@/data/mock'
-import { orderById, appendOrderMessage, closeOrder, rateOrder, saveReport } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import { consultModes } from '@/data/static'
+import {
+  fetchOrder, sendOrderMessage, closeOrder, rateOrder, saveReport, fetchDoctor, fetchPets
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
 
-const order = ref(orderById(route.params.id))
-const doc = computed(() => doctors.find((d) => d.id === order.value?.doctorId) || doctors[0])
+const order = ref(null)
+const doctor = ref(null)
+const pets = ref([])
+const FALLBACK_DOC = { name: '兽医', deptLabel: '在线问诊', title: '', hospital: '', responseMin: 0 }
+const doc = computed(() => doctor.value || order.value?.doctor || FALLBACK_DOC)
 const petName = computed(() => {
-  const p = pets.find((x) => x.id === order.value?.petId)
+  if (order.value?.pet?.name) return order.value.pet.name
+  const p = pets.value.find((x) => x.id === order.value?.petId)
   return p ? p.name : order.value?.summary?.petName || '宠物'
 })
 const modeLabel = computed(
   () => (consultModes.find((m) => m.id === order.value?.mode) || consultModes[0]).label
 )
 
-const msgs = ref(order.value ? [...order.value.messages] : [])
+const msgs = ref([])
 const input = ref('')
 const typing = ref(false)
 const listEl = ref(null)
@@ -191,11 +197,14 @@ const stateIcon = computed(
 )
 
 // 演示脚本：模拟医生接诊后的分轮回复（接入后端后由消息推送驱动）
-const script = ref([
-  '你好，我是' + (doctors.find((d) => d.id === order.value?.doctorId) || doctors[0]).name + '医生。已看过 AI 的初步判断和病例摘要，不用重复描述。',
-  '从描述看倾向于是常见问题，先按下面的方案处理，注意观察 3 天。',
-  '如果出现精神变差、拒食或症状加重，请立刻线下就诊，不要等。'
-])
+const script = computed(() => {
+  const n = doc.value?.name || '在线'
+  return [
+    `你好，我是${n}医生。已看过 AI 的初步判断和病例摘要，不用重复描述。`,
+    '从描述看倾向于是常见问题，先按下面的方案处理，注意观察 3 天。',
+    '如果出现精神变差、拒食或症状加重，请立刻线下就诊，不要等。'
+  ]
+})
 const step = ref(0)
 
 function now() {
@@ -211,7 +220,10 @@ function scrollToEnd() {
 
 function push(msg) {
   msgs.value.push(msg)
-  if (order.value) appendOrderMessage(order.value.id, msg)
+  // 自己的发言落库到后端（医生侧可见）；演示医生的回复仅本地渲染
+  if (order.value && msg.from === 'me') {
+    sendOrderMessage(order.value.id, { text: msg.text }).catch(() => {})
+  }
   scrollToEnd()
 }
 
@@ -272,61 +284,94 @@ function openRate() {
   rateOpen.value = true
 }
 
-function submitRate() {
+async function submitRate() {
   if (!order.value) return
-  rateOrder(order.value.id, order.value.doctorId, score.value, tags.value.slice())
-  closeOrder(order.value.id)
-  const o = orderById(order.value.id)
-  order.value = o
-  rateOpen.value = false
-  showToast('评价已提交，已生成问诊报告', { type: 'success' })
+  try {
+    await rateOrder(order.value.id, {
+      doctorId: order.value.doctorId,
+      score: score.value,
+      tags: tags.value.slice()
+    })
+    // 结束问诊，后端会顺带生成真人问诊报告
+    const res = await closeOrder(order.value.id)
+    order.value = res || order.value
+    const o = order.value
+    rateOpen.value = false
+    showToast('评价已提交，已生成问诊报告', { type: 'success' })
 
-  // 结束即沉淀：把医生的文字建议与处方固化为一份报告
-  const advice = msgs.value.filter((m) => m.type === 'text' && m.from === 'doc').map((m) => m.text)
-  const rxMsg = [...msgs.value].reverse().find((m) => m.type === 'rx')
-  const aiLevel = o?.summary?.triage?.level
-  const report = saveReport({
-    type: 'human',
-    orderId: o?.id,
-    petId: o?.petId,
-    petName: petName.value,
-    title: `${doc.value.name}医生 · ${o?.summary?.note || o?.summary?.symptoms?.[0] || '线上问诊'}`,
-    preview: `${modeLabel.value} · ${doc.value.name}${doc.value.title} 已完成问诊`,
-    chief: {
-      partLabel: '',
-      symptomLabels: o?.summary?.symptoms || [],
-      durationLabel: '',
-      severityLabel: '',
-      accompanyLabels: [],
-      note: o?.summary?.note || (o?.summary?.complaints || []).join('；'),
-      photos: 0
-    },
-    triage: {
-      level: aiLevel || 'urgent',
-      label: '医生已接诊',
-      short: '已完成线上问诊',
-      advice: '医生已给出处理方案，请按医嘱执行并观察恢复情况。',
-      causes: [],
-      actions: ['按医嘱用药，不自行加减剂量', '观察 3 天并记录变化', '按时复查'],
-      score: 0,
-      factors: [],
-      followUp: '如用药后无改善或症状加重，请及时复诊。'
-    },
-    doctor: { id: doc.value.id, name: doc.value.name, title: doc.value.title },
-    doctorAdvice: advice,
-    rx: rxMsg ? { drugs: rxMsg.drugs, note: rxMsg.note } : null
-  })
+    // 结束即沉淀：把医生的文字建议与处方固化为一份报告
+    const advice = msgs.value.filter((m) => m.type === 'text' && m.from === 'doc').map((m) => m.text)
+    const rxMsg = [...msgs.value].reverse().find((m) => m.type === 'rx')
+    const aiLevel = o?.summary?.triage?.level
+    const report = await saveReport({
+      type: 'human',
+      orderId: o?.id,
+      petId: o?.petId,
+      petName: petName.value,
+      title: `${doc.value.name}医生 · ${o?.summary?.note || o?.summary?.symptoms?.[0] || '线上问诊'}`,
+      preview: `${modeLabel.value} · ${doc.value.name}${doc.value.title} 已完成问诊`,
+      chief: {
+        partLabel: '',
+        symptomLabels: o?.summary?.symptoms || [],
+        durationLabel: '',
+        severityLabel: '',
+        accompanyLabels: [],
+        note: o?.summary?.note || (o?.summary?.complaints || []).join('；'),
+        photos: 0
+      },
+      triage: {
+        level: aiLevel || 'urgent',
+        label: '医生已接诊',
+        short: '已完成线上问诊',
+        advice: '医生已给出处理方案，请按医嘱执行并观察恢复情况。',
+        causes: [],
+        actions: ['按医嘱用药，不自行加减剂量', '观察 3 天并记录变化', '按时复查'],
+        score: 0,
+        factors: [],
+        followUp: '如用药后无改善或症状加重，请及时复诊。'
+      },
+      doctor: { id: doc.value.id, name: doc.value.name, title: doc.value.title },
+      doctorAdvice: advice,
+      rx: rxMsg ? { drugs: rxMsg.drugs, note: rxMsg.note } : null
+    })
 
-  router.replace(`/report/${report.id}`)
+    router.replace(`/report/${report.id}`)
+  } catch (e) {
+    showToast(e?.message || '评价提交失败，请重试', { type: 'error' })
+  }
 }
 
 function leave() {
   router.push('/records')
 }
 
-onMounted(() => {
-  if (order.value && !order.value.messages.length) {
-    push({ type: 'system', text: `已向 ${doc.value.name} 医生提交问诊单，${doc.value.responseMin} 分钟内接诊`, time: now() })
+onMounted(async () => {
+  try {
+    const o = await fetchOrder(route.params.id)
+    order.value = o
+    // 后端消息 shape 统一为本地气泡所需：type -> from，createdAt -> time
+    msgs.value = (o?.messages || []).map((m) => ({
+      ...m,
+      from: m.type === 'user' ? 'me' : m.type === 'system' ? 'sys' : 'doc',
+      time: (m.createdAt || '').slice(11, 16)
+    }))
+  } catch (e) {
+    showToast(e?.message || '问诊单加载失败', { type: 'error' })
+    return
+  }
+
+  // 医生完整资料（职称 / 医院）与宠物列表异步补齐，失败则退化为订单内嵌信息
+  if (order.value?.doctorId && /^\d+$/.test(String(order.value.doctorId))) {
+    fetchDoctor(order.value.doctorId).then((d) => { doctor.value = d }).catch(() => {})
+  }
+  fetchPets().then((ps) => { pets.value = ps || [] }).catch(() => {})
+
+  if (!msgs.value.length) {
+    push({
+      type: 'system',
+      text: `已向 ${doc.value.name} 医生提交问诊单，${doc.value.responseMin ?? 0} 分钟内接诊`,
+      time: now()
+    })
     setTimeout(doctorReply, 1500)
   } else {
     scrollToEnd()

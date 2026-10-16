@@ -40,12 +40,20 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import { fetchConversations } from '@/api/data'
+import { isAuthed } from '@/api/client'
 
 const route = useRoute()
 
 const conversations = ref([])
+// 未登录（登录页也会挂载本组件）时不发请求；请求失败时静默保持 0，
+// 不让角标数据问题升级成未捕获异常把整个应用搞崩
 onMounted(async () => {
-  conversations.value = await fetchConversations()
+  if (!isAuthed()) return
+  try {
+    conversations.value = await fetchConversations()
+  } catch {
+    conversations.value = []
+  }
 })
 
 // 3~5 个一级目的地（平台规范）；每个 tab 用 match 声明所属路由域，

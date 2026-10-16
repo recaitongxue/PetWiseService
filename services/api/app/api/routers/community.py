@@ -1,8 +1,7 @@
 """社区路由：帖子列表/发布、点赞切换、评论、举报。
 
-对应 communityApi.* → /posts。
-点赞采用「全局计数 + 帖子 liked 标记」的演示实现：单用户演示足够，多用户场景下
-liked 仅反映最后一次操作，正式环境应改为每用户点赞表（post_likes）。
+点赞按用户维度落库（post_likes 表）：liked 状态与点赞总数都对当前用户真实有效。
+功能开关 communityEnabled 维护时禁止发帖/点赞/评论（管理端「设置」页可控）。
 """
 
 from __future__ import annotations
@@ -14,7 +13,8 @@ from fastapi import APIRouter, Query
 from app.core.deps import CurrentUser, DbSession
 from app.core.envelope import ok, paged
 from app.core.errors import AppError, ErrorCode
-from app.models.social import Comment, Post
+from app.models.extra import Setting
+from app.models.social import Comment, Post, PostLike, PostReport
 from app.models.user import User
 
 router = APIRouter(prefix="/posts", tags=["community"])
@@ -22,6 +22,11 @@ router = APIRouter(prefix="/posts", tags=["community"])
 
 def _uid(user: CurrentUser) -> int:
     return int(user.user_id)
+
+
+def _feature_enabled(db: DbSession) -> bool:
+    row = db.get(Setting, "platform")
+    return bool((row.value if row and isinstance(row.value, dict) else {}).get("communityEnabled", True))
 
 
 def _ago(dt) -> str:
@@ -37,7 +42,7 @@ def _ago(dt) -> str:
     return f"{int(delta // 86400)} 天前"
 
 
-def _post_shape(p: Post) -> dict:
+def _post_shape(p: Post, liked_by_me: bool) -> dict:
     return {
         "id": p.id,
         "author": p.author,
@@ -50,8 +55,19 @@ def _post_shape(p: Post) -> dict:
         "tags": p.tags or [],
         "likes": int(p.likes or 0),
         "comments": int(p.comments or 0),
-        "liked": bool(p.liked),
+        "liked": liked_by_me,
     }
+
+
+def _liked_post_ids(db: DbSession, uid: int, post_ids: list[str]) -> set[str]:
+    if not post_ids:
+        return set()
+    rows = (
+        db.query(PostLike.post_id)
+        .filter(PostLike.user_id == uid, PostLike.post_id.in_(post_ids))
+        .all()
+    )
+    return {r[0] for r in rows}
 
 
 def _comment_shape(c: Comment) -> dict:
@@ -87,7 +103,8 @@ def list_posts(
         .limit(page_size)
         .all()
     )
-    return paged([_post_shape(p) for p in rows], total=total, page=page, page_size=page_size)
+    liked = _liked_post_ids(db, _uid(user), [p.id for p in rows])
+    return paged([_post_shape(p, p.id in liked) for p in rows], total=total, page=page, page_size=page_size)
 
 
 @router.get("/{post_id}")
@@ -95,17 +112,19 @@ def get_post(post_id: str, user: CurrentUser, db: DbSession) -> dict:
     p = db.get(Post, post_id)
     if p is None:
         raise AppError(ErrorCode.NOT_FOUND, "帖子不存在")
-    return ok(_post_shape(p))
+    liked = _liked_post_ids(db, _uid(user), [p.id])
+    return ok(_post_shape(p, p.id in liked))
 
 
 @router.post("")
 def publish_post(body: dict, user: CurrentUser, db: DbSession) -> dict:
+    if not _feature_enabled(db):
+        raise AppError(ErrorCode.FORBIDDEN, "社区维护中，暂不可发布")
     me = db.get(User, _uid(user))
-    name = me.nickname if me else "宠主"
     p = Post(
         id=_new_id("p"),
         user_id=_uid(user),
-        author=name,
+        author=me.nickname if me else "宠主",
         role=me.role if me else "user",
         avatar=me.avatar if me else None,
         text=str(body.get("text", "")),
@@ -113,36 +132,36 @@ def publish_post(body: dict, user: CurrentUser, db: DbSession) -> dict:
         tags=body.get("tags") or [],
         likes=0,
         comments=0,
-        liked=False,
     )
     db.add(p)
     db.commit()
     db.refresh(p)
-    return ok(_post_shape(p))
+    return ok(_post_shape(p, False))
 
 
-@router.post("/{post_id}/like")
+@router.post("/{post_id}/like", summary="点赞 / 取消点赞（同一端点切换）")
 def like_post(post_id: str, user: CurrentUser, db: DbSession) -> dict:
+    if not _feature_enabled(db):
+        raise AppError(ErrorCode.FORBIDDEN, "社区维护中，暂不可互动")
+    uid = _uid(user)
     p = db.get(Post, post_id)
     if p is None:
         raise AppError(ErrorCode.NOT_FOUND, "帖子不存在")
-    if not p.liked:
-        p.liked = True
+    exist = (
+        db.query(PostLike)
+        .filter(PostLike.post_id == post_id, PostLike.user_id == uid)
+        .first()
+    )
+    if exist is None:
+        db.add(PostLike(post_id=post_id, user_id=uid))
         p.likes = int(p.likes or 0) + 1
-        db.commit()
-    return ok({"id": p.id, "liked": bool(p.liked), "likes": int(p.likes or 0)})
-
-
-@router.delete("/{post_id}/like")
-def unlike_post(post_id: str, user: CurrentUser, db: DbSession) -> dict:
-    p = db.get(Post, post_id)
-    if p is None:
-        raise AppError(ErrorCode.NOT_FOUND, "帖子不存在")
-    if p.liked:
-        p.liked = False
+        liked = True
+    else:
+        db.delete(exist)
         p.likes = max(0, int(p.likes or 0) - 1)
-        db.commit()
-    return ok({"id": p.id, "liked": bool(p.liked), "likes": int(p.likes or 0)})
+        liked = False
+    db.commit()
+    return ok({"id": p.id, "liked": liked, "likes": int(p.likes or 0)})
 
 
 @router.get("/{post_id}/comments", summary="帖子评论列表")
@@ -166,6 +185,8 @@ def list_comments(
 
 @router.post("/{post_id}/comments", summary="发表评论")
 def add_comment(post_id: str, body: dict, user: CurrentUser, db: DbSession) -> dict:
+    if not _feature_enabled(db):
+        raise AppError(ErrorCode.FORBIDDEN, "社区维护中，暂不可互动")
     p = db.get(Post, post_id)
     if p is None:
         raise AppError(ErrorCode.NOT_FOUND, "帖子不存在")
@@ -184,9 +205,20 @@ def add_comment(post_id: str, body: dict, user: CurrentUser, db: DbSession) -> d
     return ok(_comment_shape(c))
 
 
-@router.post("/{post_id}/report", summary="举报帖子")
+@router.post("/{post_id}/report", summary="举报帖子（落库，供管理端审核）")
 def report_post(post_id: str, body: dict, user: CurrentUser, db: DbSession) -> dict:
     p = db.get(Post, post_id)
     if p is None:
         raise AppError(ErrorCode.NOT_FOUND, "帖子不存在")
-    return ok({"id": post_id, "reported": True})
+    r = PostReport(
+        post_id=post_id,
+        post_author=p.author,
+        post_text=(p.text or "")[:200],
+        user_id=_uid(user),
+        reason=body.get("reason") or "other",
+        note=body.get("note"),
+    )
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return ok({"id": r.id, "reported": True})

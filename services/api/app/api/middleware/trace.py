@@ -2,7 +2,7 @@
 
 - 入口生成（或沿用上游）traceId 并写入 ContextVar 与 request.state
 - 响应回写 X-Trace-Id，前端报错时可直接提供给用户
-- 调用下游服务时由 clients/base.py 透传，串联整条链路
+- 日志统一带 traceId，单请求全链路可串联
 """
 
 from __future__ import annotations

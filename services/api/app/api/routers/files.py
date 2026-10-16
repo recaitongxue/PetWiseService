@@ -1,4 +1,4 @@
-"""文件上传路由：通用对象存储入口（头像 / 帖子图 / 识别图 / 问诊图）。
+"""文件上传路由：通用上传入口（头像 / 帖子图 / 识别图 / 问诊图 / 聊天图）。
 
 对应 fileApi.upload → POST /files。
 本地演示：保存到 services/api/uploads/{date}/，并挂载 /uploads 静态目录返回可访问 URL。
@@ -10,64 +10,45 @@ from __future__ import annotations
 import datetime
 import mimetypes
 import os
-import time
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser
 from app.core.envelope import ok
 from app.core.errors import AppError, ErrorCode
+from app.core.storage import save_upload
 
 router = APIRouter(prefix="/files", tags=["files"])
-
-_UPLOAD_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
-)
 
 _ALLOWED = {
     "avatar": {"image/jpeg", "image/png", "image/webp"},
     "post": {"image/jpeg", "image/png", "image/webp", "image/gif"},
+    "chat": {"image/jpeg", "image/png", "image/webp", "image/gif"},
     "recognition": {"image/jpeg", "image/png", "image/webp"},
     "consult": {"image/jpeg", "image/png", "image/webp"},
 }
 
 
-def _uid(user: CurrentUser) -> int:
-    return int(user.user_id)
-
-
-@router.post("")
+@router.post("", summary="上传文件（返回可访问 URL）")
 async def upload_file(
     user: CurrentUser,
-    db: DbSession,
     file: UploadFile = File(...),
     scene: str = Form(default="post"),
-    request: Request = None,
 ) -> dict:
     allowed = _ALLOWED.get(scene, _ALLOWED["post"])
     mime = file.content_type or mimetypes.guess_type(file.filename or "")[0] or ""
     if mime not in allowed:
         raise AppError(ErrorCode.BAD_REQUEST, f"scene={scene} 不允许的文件类型 {mime}")
 
-    os.makedirs(_UPLOAD_DIR, exist_ok=True)
-    ext = os.path.splitext(file.filename or "file.bin")[1] or ".bin"
+    rel, size = save_upload(file)
     sub = datetime.date.today().isoformat()
-    abs_dir = os.path.join(_UPLOAD_DIR, sub)
-    os.makedirs(abs_dir, exist_ok=True)
-    fname = f"{int(time.time() * 1000)}{ext}"
-    abs_path = os.path.join(abs_dir, fname)
-    data = file.file.read()
-    with open(abs_path, "wb") as f:
-        f.write(data)
-
-    rel = f"uploads/{sub}/{fname}"
-    base = str(request.base_url).rstrip("/") if request else ""
-    url = f"{base}/{rel}" if base else f"/{rel}"
+    fname = os.path.basename(rel)
+    url = f"/uploads/{sub}/{fname}"
     return ok(
         {
             "url": url,
             "key": rel,
-            "size": len(data),
+            "size": size,
             "mimeType": mime,
             "width": None,
             "height": None,

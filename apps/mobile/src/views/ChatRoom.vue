@@ -22,8 +22,12 @@
         <!-- 图片消息 -->
         <div v-if="m.image" class="bubble-row" :class="m.role">
           <span v-if="m.role === 'them'" class="b-avatar">{{ initial(conv?.name) }}</span>
-          <div class="img-bubble" :class="['tone-' + m.image, m.role]">
-            <AppIcon name="image" :size="30" />
+          <div
+            class="img-bubble"
+            :class="[isUrl(m.image) ? 'url' : 'tone-' + m.image, m.role]"
+            :style="isUrl(m.image) ? { backgroundImage: `url(${m.image})` } : null"
+          >
+            <AppIcon name="image" :size="30" class="img-mark" />
             <span class="img-mask" @click="preview(m)">查看大图</span>
           </div>
         </div>
@@ -67,9 +71,17 @@
       <button class="composer-icon" type="button" aria-label="表情" @click="emojiOpen = !emojiOpen">
         <AppIcon name="sparkle" :size="20" />
       </button>
-      <button class="composer-icon" type="button" aria-label="发送图片" @click="sendImage">
+      <button class="composer-icon" type="button" aria-label="发送图片" @click="pickImage">
         <AppIcon name="image" :size="20" />
       </button>
+      <!-- 真实选图：相册/相机选图后上传到服务端，消息携带可访问 URL -->
+      <input
+        ref="fileInput"
+        class="file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        @change="onImagePicked"
+      />
       <input
         v-model="input"
         class="composer-input"
@@ -131,9 +143,6 @@
 
           <div class="pf-actions">
             <button class="pf-btn ghost" type="button" @click="goCommunity">查看 TA 的社区</button>
-            <button class="pf-btn" type="button" @click="followToggle">
-              {{ following ? '已关注' : '关注' }}
-            </button>
           </div>
         </div>
       </div>
@@ -146,17 +155,21 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { conversations, chatRooms, allContacts } from '@/data/mock'
-import { showToast } from '@/composables/toast'
+import { fetchConversations, fetchContactGroups, fetchMessages, sendMessage } from '@/api/data'
+import { fileApi } from '@/api'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
 
+const conversations = ref([])
+const allContacts = ref([])
+
 // 有会话记录的用会话；通讯录联系人（暂无会话）回退为临时会话，可直接发起聊天
 const conv = computed(() => {
-  const hit = conversations.find((c) => c.id === route.params.id)
+  const hit = conversations.value.find((c) => c.id === route.params.id)
   if (hit) return hit
-  const c = allContacts.find((m) => m.id === route.params.id)
+  const c = allContacts.value.find((m) => m.id === route.params.id)
   if (!c) return null
   return {
     id: c.id,
@@ -165,29 +178,32 @@ const conv = computed(() => {
     online: !!c.online,
     profile: {
       bio: c.bio,
-      pet: c.pet || null,
+      pet: c.pet && c.pet.name ? c.pet : null,
       posts: c.posts || 0,
       fans: c.fans || 0
     }
   }
 })
-const msgs = ref([...(chatRooms[route.params.id] || [])])
+const msgs = ref([])
 const input = ref('')
 const typing = ref(false)
 const listEl = ref(null)
 const emojiOpen = ref(false)
 const infoOpen = ref(false)
 const msgMenu = ref(null)
-const following = ref(false)
 
 const emojis = ['🐱', '🐶', '😻', '🥺', '😭', '🤤', '👍', '🎉', '🐾', '❤️', '😴', '✨']
-const imageTones = ['sage', 'peach', 'coral', 'sand']
+const fileInput = ref(null)
+const MAX_IMAGE_MB = 8
 
 function initial(name) {
   return (name || '?').slice(0, 1)
 }
 function kindLabel(k) {
   return { vet: '执业兽医', group: '群聊', friend: '好友' }[k] || ''
+}
+function isUrl(v) {
+  return typeof v === 'string' && /^(https?:)?\/\/|^data:|^\/|^[\w.-]+\.(png|jpe?g|gif|webp|svg)/i.test(v)
 }
 
 function scrollToEnd() {
@@ -203,38 +219,67 @@ function goBack() {
   router.back()
 }
 
-function send() {
+async function send() {
   const text = input.value.trim()
   if (!text || typing.value) return
-  msgs.value.push({ role: 'me', text, time: now() })
   input.value = ''
   emojiOpen.value = false
-  scrollToEnd()
   typing.value = true
   scrollToEnd()
-  setTimeout(() => {
-    typing.value = false
-    msgs.value.push({ role: 'them', text: '收到～ 我看看', time: now() })
+  try {
+    // 后端返回「本条消息」+「对方回执」，两条都要进本地列表
+    const { message, reply } = await sendMessage(route.params.id, { text })
+    if (message) msgs.value.push(message)
+    if (reply) msgs.value.push(reply)
     scrollToEnd()
-  }, 1100)
+  } catch (e) {
+    showToast(e?.message || '发送失败', { type: 'error' })
+  } finally {
+    typing.value = false
+  }
 }
 
-// 图片消息：从预设图色调里随机取一张（真实环境为相册选图）
-function sendImage() {
+// 图片消息：真实选图 → 上传服务端 → 以可访问 URL 发送
+function pickImage() {
   if (typing.value) return
-  const tone = imageTones[Math.floor(Math.random() * imageTones.length)]
-  msgs.value.push({ role: 'me', image: tone, time: now() })
-  scrollToEnd()
+  fileInput.value?.click()
+}
+
+async function onImagePicked(e) {
+  const file = e.target.files?.[0]
+  e.target.value = '' // 允许再次选择同一文件
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    showToast('请选择图片文件', { type: 'warn' })
+    return
+  }
+  if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+    showToast(`图片不能超过 ${MAX_IMAGE_MB}MB`, { type: 'warn' })
+    return
+  }
   typing.value = true
-  setTimeout(() => {
-    typing.value = false
-    msgs.value.push({ role: 'them', text: '照片看到啦，情况我了解了', time: now() })
+  scrollToEnd()
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const up = await fileApi.upload(fd, 'chat')
+    const url = up?.url
+    if (!url) throw new Error('上传失败')
+    const { message, reply } = await sendMessage(route.params.id, { images: [url] })
+    if (message) msgs.value.push(toViewMsg(message))
+    if (reply) msgs.value.push(reply)
     scrollToEnd()
-  }, 1100)
+  } catch (err) {
+    showToast(err?.message || '图片发送失败', { type: 'error' })
+  } finally {
+    typing.value = false
+    scrollToEnd()
+  }
 }
 
 function preview(m) {
-  showToast('演示环境：真实设备上此处查看原图', { type: 'info' })
+  if (isUrl(m.image)) window.open(m.image, '_blank')
+  else showToast('演示环境：真实设备上此处查看原图', { type: 'info' })
 }
 
 /* ---------- 长按操作 ---------- */
@@ -276,12 +321,32 @@ function goCommunity() {
   infoOpen.value = false
   router.push('/community')
 }
-function followToggle() {
-  following.value = !following.value
-  showToast(following.value ? `已关注「${conv.value?.name}」` : '已取消关注', { type: 'info' })
-}
 
-onMounted(scrollToEnd)
+onMounted(async () => {
+  try {
+    const [convs, contactRes] = await Promise.all([fetchConversations(), fetchContactGroups()])
+    conversations.value = convs || []
+    allContacts.value = (contactRes?.groups || []).flatMap((g) => g.members || [])
+  } catch (e) {
+    showToast(e?.message || '会话加载失败', { type: 'error' })
+  }
+  try {
+    // 后端图片消息用 images[]（URL 数组），模板按 m.image 单图渲染，这里做一次映射
+    const list = await fetchMessages(route.params.id)
+    msgs.value = (list || []).map(toViewMsg)
+  } catch {
+    msgs.value = []
+  }
+  scrollToEnd()
+})
+
+/** 后端消息形状 → 视图消息形状（images[] 取首图映射为 image） */
+function toViewMsg(m) {
+  return {
+    ...m,
+    image: m.image || (m.images?.length && !m.text ? m.images[0] : undefined)
+  }
+}
 </script>
 
 <style scoped>
@@ -422,6 +487,13 @@ onMounted(scrollToEnd)
 .img-bubble.tone-peach { background: var(--grad-peach); }
 .img-bubble.tone-coral { background: var(--grad-coral); }
 .img-bubble.tone-sand { background: var(--grad-sand); }
+/* 真实图片：URL 作为背景铺满，隐藏示意图标 */
+.img-bubble.url {
+  background-size: cover;
+  background-position: center;
+  background-color: var(--color-surface-2);
+}
+.img-bubble.url .img-mark { display: none; }
 .img-mask {
   position: absolute;
   inset: auto 0 0 0;
@@ -502,6 +574,9 @@ onMounted(scrollToEnd)
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .composer-icon:active { transform: scale(0.9); }
+.file-input {
+  display: none;
+}
 .composer-input {
   flex: 1;
   min-width: 0;

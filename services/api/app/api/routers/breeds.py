@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import DbSession
 from app.core.envelope import ok
 from app.core.errors import AppError, ErrorCode
-from app.models.extra import AnnouncementDismiss
 from app.models.breed import Breed
-from app.schemas.misc import BreedOut
 
 router = APIRouter(prefix="/breeds", tags=["breeds"])
 

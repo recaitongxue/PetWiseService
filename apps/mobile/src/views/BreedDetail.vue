@@ -88,23 +88,40 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetIllustration from '@/components/PetIllustration.vue'
-import { breedLibrary } from '@/data/mock'
+import { fetchBreed, fetchBreedLibrary } from '@/api/data'
 
 const route = useRoute()
 const router = useRouter()
-const breed = computed(() =>
-  breedLibrary.find((b) => b.id === route.params.id) ||
-  breedLibrary.find((b) => b.name === route.params.id) ||
-  null
-)
+const breed = ref(null)
+
+// 路由参数可能是后端数字 id，也可能是旧演示的 slug / 品种名，两种都兼容
+async function load(id) {
+  breed.value = null
+  try {
+    if (/^\d+$/.test(String(id))) {
+      breed.value = await fetchBreed(Number(id))
+      return
+    }
+    const list = await fetchBreedLibrary()
+    breed.value =
+      list.find((b) => String(b.id) === String(id)) ||
+      list.find((b) => b.name === id) ||
+      null
+  } catch {
+    breed.value = null
+  }
+}
+
+onMounted(() => load(route.params.id))
+watch(() => route.params.id, load)
 
 // 带具体问题进入 AI 问诊（RAG 检索的知识库上下文由后端补充）
 function askAi(question) {
-  router.push({ path: '/consult/ai', query: { pet: breed.value.name, note: question } })
+  router.push({ path: '/consult/ai', query: { pet: breed.value?.name || '', note: question } })
 }
 </script>
 

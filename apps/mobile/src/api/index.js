@@ -5,10 +5,9 @@
  *   import { authApi, petsApi, consultApi } from '@/api'
  *   const pets = await petsApi.list()
  *
- * 联调时把页面对 data/mock.js、data/ops.js 的调用替换为这里的函数即可，
- * 映射关系见 API.md「附录 B：Mock → API 替换映射表」。
+ * 所有视图统一经 @/api/data 门面调用；纯静态配置在 @/data/static。
  */
-import { http } from './request'
+import { http } from '@shared/request'
 
 /* ---------------- 认证与用户 ---------------- */
 export const authApi = {
@@ -19,6 +18,19 @@ export const authApi = {
   updateMe: (patch) => http.patch('/users/me', patch)
 }
 
+export const usersApi = {
+  preferences: () => http.get('/users/preferences'),
+  updatePreferences: (body) => http.put('/users/preferences', body),
+  blocked: () => http.get('/users/blocked'),
+  addBlocked: (body) => http.post('/users/blocked', body),
+  removeBlocked: (contactId) => http.del(`/users/blocked/${contactId}`),
+  balance: () => http.get('/users/balance'),
+  changePassword: (body) => http.put('/users/password', body),
+  changePhone: (body) => http.post('/users/phone', body),
+  setBinding: (provider, body) => http.post(`/users/bindings/${provider}`, body),
+  deactivate: () => http.post('/users/deactivate')
+}
+
 /* ---------------- 宠物档案 ---------------- */
 export const petsApi = {
   list: () => http.get('/pets'),
@@ -27,7 +39,6 @@ export const petsApi = {
   update: (id, body) => http.patch(`/pets/${id}`, body),
   remove: (id) => http.del(`/pets/${id}`),
   trend: (id, week) => http.get(`/pets/${id}/health-trend`, { week }),
-  reminders: (id, date) => http.get(`/pets/${id}/reminders`, { date }),
   weights: (id, months = 6) => http.get(`/pets/${id}/weights`, { months }),
   addWeight: (id, body) => http.post(`/pets/${id}/weights`, body),
   records: (id, params) => http.get(`/pets/${id}/records`, params),
@@ -53,10 +64,6 @@ export const contactsApi = {
 }
 
 /* ---------------- 首页聚合 ---------------- */
-export const homeApi = {
-  summary: (petId) => http.get('/home', { petId })
-}
-
 /* ---------------- 公告 · 反馈 · 品种 · 收藏 ---------------- */
 export const contentApi = {
   announcements: (active = true) => http.get('/announcements', { active }),
@@ -65,7 +72,7 @@ export const contentApi = {
   breeds: (params) => http.get('/breeds', params),
   breed: (id) => http.get(`/breeds/${id}`),
   favorites: (kind) => http.get('/favorites', { kind }),
-  addFavorite: (kind, targetId) => http.post('/favorites', { kind, targetId }),
+  addFavorite: (kind, targetId, meta) => http.post('/favorites', { kind, targetId, ...(meta || {}) }),
   removeFavorite: (kind, targetId) => http.del(`/favorites/${kind}/${targetId}`)
 }
 
@@ -119,8 +126,7 @@ export const consultApi = {
 export const communityApi = {
   posts: (params) => http.get('/posts', params),
   publish: (body) => http.post('/posts', body),
-  like: (id) => http.post(`/posts/${id}/like`),
-  unlike: (id) => http.del(`/posts/${id}/like`),
+  toggleLike: (id) => http.post(`/posts/${id}/like`),
   comments: (id, params) => http.get(`/posts/${id}/comments`, params),
   comment: (id, text) => http.post(`/posts/${id}/comments`, { text }),
   report: (id, body) => http.post(`/posts/${id}/report`, body || {})
@@ -143,6 +149,12 @@ export const memoApi = {
   remove: (id) => http.del(`/memo/${id}`)
 }
 
+export const walletApi = {
+  overview: (q) => http.get('/wallet', q),
+  topup: (body) => http.post('/wallet/topup', body),
+  withdraw: (body) => http.post('/wallet/withdraw', body)
+}
+
 /* ---------------- 文件上传 ---------------- */
 export const fileApi = {
   upload: (formData, scene = 'post') => {
@@ -162,4 +174,4 @@ export const adminApi = {
   handleFeedback: (id, body) => http.patch(`/admin/feedbacks/${id}`, body)
 }
 
-export { http, ApiError, isAuthError, USE_MOCK } from './request'
+export { http, ApiError, isAuthError } from '@shared/request'

@@ -1,10 +1,10 @@
-"""宠物 CRUD、详情统计、健康记录、体重趋势、当日提醒。"""
+"""宠物 CRUD、详情统计、健康记录与体重趋势。"""
 
 from __future__ import annotations
 
 import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.envelope import ok, paged
@@ -17,22 +17,10 @@ from app.schemas.pet import (
     HealthRecordCreate,
     HealthRecordOut,
     PetCreate,
-    PetOut,
     PetUpdate,
 )
 
 router = APIRouter(prefix="/pets", tags=["pets"])
-
-_TYPE_ICON = {
-    "vaccine": "calendar-check",
-    "deworm": "pill",
-    "check": "stethoscope",
-    "weight": "scale",
-    "groom": "sparkle",
-    "feeding": "bowl",
-    "medication": "pill",
-    "other": "calendar",
-}
 
 _WEEK_DAYS = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -73,9 +61,7 @@ def create_pet(body: PetCreate, user: CurrentUser, db: DbSession) -> dict:
 @router.get("/{pet_id}", summary="宠物详情（含概要统计）")
 def get_pet(pet_id: int, user: CurrentUser, db: DbSession) -> dict:
     pet = _owned_pet(db, _uid(user), pet_id)
-    record_count = (
-        db.query(HealthRecord).filter(HealthRecord.pet_id == pet_id).count()
-    )
+    record_count = db.query(HealthRecord).filter(HealthRecord.pet_id == pet_id).count()
     pending = (
         db.query(ScheduleItem)
         .filter(ScheduleItem.pet_id == pet_id, ScheduleItem.done.is_(False))
@@ -109,28 +95,6 @@ def delete_pet(pet_id: int, user: CurrentUser, db: DbSession) -> dict:
     return ok({"deleted": True})
 
 
-@router.get("/{pet_id}/health", summary="健康记录（体重趋势）")
-def list_health(pet_id: int, user: CurrentUser, db: DbSession) -> dict:
-    _owned_pet(db, _uid(user), pet_id)
-    rows = (
-        db.query(HealthRecord)
-        .filter(HealthRecord.pet_id == pet_id)
-        .order_by(HealthRecord.record_date.asc())
-        .all()
-    )
-    return ok([HealthRecordOut.model_validate(r).model_dump() for r in rows])
-
-
-@router.post("/{pet_id}/health", summary="添加健康记录")
-def add_health(pet_id: int, body: HealthRecordCreate, user: CurrentUser, db: DbSession) -> dict:
-    _owned_pet(db, _uid(user), pet_id)
-    rec = HealthRecord(owner_id=_uid(user), pet_id=pet_id, **body.model_dump())
-    db.add(rec)
-    db.commit()
-    db.refresh(rec)
-    return ok(HealthRecordOut.model_validate(rec).model_dump())
-
-
 @router.get("/{pet_id}/records", summary="健康记录列表（分页）")
 def list_records(pet_id: int, user: CurrentUser, db: DbSession, page: int = 1, page_size: int = 20) -> dict:
     _owned_pet(db, _uid(user), pet_id)
@@ -142,8 +106,13 @@ def list_records(pet_id: int, user: CurrentUser, db: DbSession, page: int = 1, p
         .limit(page_size)
         .all()
     )
-    return ok(
-        paged([HealthRecordOut.model_validate(r).model_dump() for r in rows], total, page, page_size)
+    # 注意：paged() 内部已包一层 ok()，不要再套 ok()，否则会出现双层信封
+    # （前端 http 取到的 data 是信封本身而非 {list,...}，导致 .map 报 undefined）
+    return paged(
+        [HealthRecordOut.model_validate(r).model_dump() for r in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -169,7 +138,7 @@ def delete_record(record_id: int, user: CurrentUser, db: DbSession) -> dict:
     return ok({"deleted": True})
 
 
-@router.get("/{pet_id}/weights", summary="体重历史（按自然月去重，取最新）")
+@router.get("/{pet_id}/weights", summary="体重历史（按自然月去重，取最近 N 个月）")
 def weight_history(pet_id: int, user: CurrentUser, db: DbSession, months: int = 6) -> dict:
     _owned_pet(db, _uid(user), pet_id)
     rows = (
@@ -178,12 +147,12 @@ def weight_history(pet_id: int, user: CurrentUser, db: DbSession, months: int = 
         .order_by(HealthRecord.record_date.asc())
         .all()
     )
-    latest = {}
+    latest: dict[str, float] = {}
     for r in rows:
         key = f"{r.record_date.year}-{r.record_date.month}"
         latest[key] = float(r.weight)
     out = []
-    for key in sorted(latest)[:months]:
+    for key in sorted(latest)[-months:]:  # 取最近的月份，不是最早的
         y, m = key.split("-")
         out.append({"m": f"{int(m)}月", "w": round(latest[key], 1)})
     return ok(out)
@@ -208,58 +177,32 @@ def add_weight(pet_id: int, body: dict, user: CurrentUser, db: DbSession) -> dic
     return ok({"id": rec.id, "weight": w, "date": d})
 
 
-@router.get("/{pet_id}/health-trend", summary="周健康趋势（7 点）")
-def health_trend(pet_id: int, user: CurrentUser, db: DbSession, week: str | None = None) -> dict:
+@router.get("/{pet_id}/health-trend", summary="近 7 天健康分趋势（按真实日程欠账与症状记录计算）")
+def health_trend(pet_id: int, user: CurrentUser, db: DbSession) -> dict:
+    """健康分 = 宠物当前健康分 − 当日累计欠账（未完成且已到期日程 ×2）− 当日症状记录 ×3。
+
+    没有伪造的波动：曲线只反映真实存在于库中的日程与健康记录。
+    """
     pet = _owned_pet(db, _uid(user), pet_id)
     base = int(pet.health_score or 80)
-    points = []
-    for i, day in enumerate(_WEEK_DAYS):
-        value = max(40, min(100, base + (i % 3 - 1) * 6))
-        label = "优" if value >= 90 else "良" if value >= 75 else "需关注"
-        points.append({"day": day, "value": value, "label": label})
-
-    recent = (
-        db.query(HealthRecord)
-        .filter(HealthRecord.pet_id == pet_id)
-        .order_by(HealthRecord.record_date.desc())
-        .limit(7)
-        .all()
-    )
-    if recent:
-        for i, r in enumerate(recent[:7]):
-            points[i] = {
-                "day": _WEEK_DAYS[i],
-                "value": max(40, min(100, base)),
-                "label": "优" if base >= 90 else "良" if base >= 75 else "需关注",
-            }
-    return ok({"petId": pet_id, "week": week or "current", "points": points})
-
-
-@router.get("/{pet_id}/reminders", summary="宠物当日提醒")
-def pet_reminders(pet_id: int, user: CurrentUser, db: DbSession, date: str | None = None) -> dict:
-    _owned_pet(db, _uid(user), pet_id)
     now = datetime.datetime.now()
-    items = (
-        db.query(ScheduleItem)
-        .filter(ScheduleItem.pet_id == pet_id)
-        .order_by(ScheduleItem.due_at.asc())
+    items = db.query(ScheduleItem).filter(ScheduleItem.pet_id == pet_id).all()
+    symptom_days = {
+        r.record_date
+        for r in db.query(HealthRecord)
+        .filter(HealthRecord.pet_id == pet_id, HealthRecord.kind == "symptom")
         .all()
-    )
-    out = []
-    for it in items:
-        if it.done:
-            state = "good"
-        elif it.due_at < now:
-            state = "overdue"
-        else:
-            state = "watch"
-        out.append(
-            {
-                "id": it.id,
-                "icon": _TYPE_ICON.get(it.category, "calendar"),
-                "label": it.title,
-                "date": it.due_at.strftime("%m-%d"),
-                "state": state,
-            }
-        )
-    return ok(out)
+    }
+    points = []
+    for i in range(6, -1, -1):
+        day = (now - datetime.timedelta(days=i)).date()
+        day_end = datetime.datetime(day.year, day.month, day.day) + datetime.timedelta(days=1)
+        overdue = sum(1 for it in items if not it.done and it.due_at < day_end)
+        symptoms = 1 if day in symptom_days else 0
+        value = max(40, min(100, base - 2 * overdue - 3 * symptoms))
+        points.append({
+            "day": _WEEK_DAYS[day.weekday()],
+            "value": value,
+            "label": "优" if value >= 90 else "良" if value >= 75 else "需关注",
+        })
+    return ok({"petId": pet_id, "points": points})

@@ -9,9 +9,6 @@
         <span class="post-name">{{ post.author }}</span>
         <span class="post-time">{{ post.time }}</span>
       </div>
-      <button class="post-follow" :class="{ on: following }" type="button" @click="following = !following">
-        {{ following ? '已关注' : '关注' }}
-      </button>
       <button class="post-more" type="button" aria-label="更多操作" @click="$emit('more', post)">
         <AppIcon name="filter" :size="16" />
       </button>
@@ -21,16 +18,13 @@
 
     <div v-if="post.images.length" class="post-grid" :class="'g' + post.images.length">
       <div
-        v-for="(tone, i) in post.images"
+        v-for="(img, i) in post.images"
         :key="i"
         class="post-img"
-        :class="'tone-' + tone"
+        :class="isUrl(img) ? 'url' : 'tone-' + img"
+        :style="isUrl(img) ? { backgroundImage: `url(${img})` } : null"
       >
         <AppIcon name="paw" :size="post.images.length === 1 ? 64 : 36" class="img-mark" />
-        <!-- 视频标识：首图左上角时长胶囊 -->
-        <span v-if="post.videos && i === 0" class="vid-badge num">
-          <AppIcon name="video" :size="11" /> {{ post.videoDuration || '00:12' }}
-        </span>
       </div>
     </div>
 
@@ -66,6 +60,7 @@
 import { ref, computed } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
+import { togglePostLike } from '@/api/data'
 
 const props = defineProps({
   post: { type: Object, required: true }
@@ -74,10 +69,26 @@ defineEmits(['comment', 'more', 'share'])
 
 const localLiked = ref(props.post.liked)
 const localLikes = ref(props.post.likes)
-const following = ref(false)
-function toggleLike() {
-  localLiked.value = !localLiked.value
-  localLikes.value += localLiked.value ? 1 : -1
+
+// 图片项：后端返回真实 URL，兼容历史色调名
+function isUrl(v) {
+  return typeof v === 'string' && /^(https?:)?\/\/|^data:|^\/|^[\w.-]+\.(png|jpe?g|gif|webp|svg)/i.test(v)
+}
+
+// 点赞：单端点切换；先本地乐观更新，再用服务端返回的权威状态校正
+async function toggleLike() {
+  const prev = localLiked.value
+  const prevLikes = localLikes.value
+  localLiked.value = !prev
+  localLikes.value = prevLikes + (localLiked.value ? 1 : -1)
+  try {
+    const res = await togglePostLike(props.post.id)
+    if (res && typeof res.liked === 'boolean') localLiked.value = res.liked
+    if (res && typeof res.likes === 'number') localLikes.value = res.likes
+  } catch {
+    localLiked.value = prev
+    localLikes.value = prevLikes
+  }
 }
 
 const initial = computed(() => (props.post.author || '?').slice(0, 1))
@@ -123,24 +134,6 @@ const initial = computed(() => (props.post.author || '?').slice(0, 1))
 .post-time {
   font-size: 12px;
   color: var(--color-muted);
-}
-.post-follow {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-accent-ink);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-pill);
-  padding: 5px 14px;
-  transition: background var(--dur-fast), color var(--dur-fast);
-  flex-shrink: 0;
-}
-.post-follow:active {
-  background: var(--color-accent);
-  color: #fff;
-}
-.post-follow.on {
-  color: var(--color-muted);
-  border-color: var(--hairline);
 }
 .post-more {
   width: 30px;
@@ -194,26 +187,17 @@ const initial = computed(() => (props.post.author || '?').slice(0, 1))
 .post-img.tone-ink { background: var(--grad-ink); }
 .post-img.tone-coral { background: var(--grad-coral); }
 .post-img.tone-sand { background: var(--grad-sand); }
+/* 真实图片：以 URL 作为背景铺满，隐藏示意爪印 */
+.post-img.url {
+  background-size: cover;
+  background-position: center;
+  background-color: var(--color-surface-2);
+}
+.post-img.url .img-mark { display: none; }
 .img-mark {
   color: rgba(255, 255, 255, 0.32);
   position: relative;
   z-index: 1;
-}
-.vid-badge {
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(27, 42, 34, 0.55);
-  backdrop-filter: blur(4px);
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
 }
 .post-tags {
   display: flex;

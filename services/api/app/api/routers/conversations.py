@@ -1,8 +1,8 @@
 """即时消息（IM）路由：会话列表、新建会话、消息收发、已读。
 
 对应 imApi.* → /conversations。
-消息以「我」(role=me) 发送存储；为让会话有回应感，发送后按规则追加一条对方
-(role=them) 的演示回执消息；不依赖 WebSocket（前端轮询即可）。
+消息以「我」(role=me) 发送存储；对方（好友/医生）的回复由真实端产生，
+服务端不代写假回复。前端轮询拉取即可，不依赖 WebSocket。
 """
 
 from __future__ import annotations
@@ -138,20 +138,9 @@ def send_message(conv_id: str, body: dict, user: CurrentUser, db: DbSession) -> 
     conv.last = text or "[图片]"
     conv.time = mine.time
     conv.unread = 0
-
-    # 演示回执：对方一条简短回复
-    them = Message(
-        conversation_id=conv_id,
-        owner_id=uid,
-        role="them",
-        text="收到～我看看情况，稍后回复你。",
-        time=_now_text(),
-    )
-    db.add(them)
-    conv.last = them.text
     db.commit()
 
-    return ok({"message": _msg_shape(mine), "reply": _msg_shape(them)})
+    return ok({"message": _msg_shape(mine)})
 
 
 @router.post("/{conv_id}/read", summary="标记已读")

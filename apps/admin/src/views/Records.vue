@@ -79,49 +79,64 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppIcon from '@/components/icons/AppIcon.vue'
-import { recognitions as seedRecognitions } from '@/data/admin'
-import { showToast } from '@/composables/toast'
+import { adminApi } from '@/api'
+import { showToast } from '@shared/toast'
 
-const RECOG_KEY = 'petwise_recognitions' // 与 App 端共用：用户在识别页的手动纠正写入此键
 const kw = ref('')
 const tab = ref('all')
 
-// 读取 App 端写入的识别记录，转成管理端行格式
-function readAppRecords() {
-  try {
-    const rows = JSON.parse(localStorage.getItem(RECOG_KEY) || '[]')
-    if (!Array.isArray(rows)) return []
-    return rows.map((r) => ({
-      id: r.id,
-      user: '当前用户',
-      pet: r.species === 'dog' ? '犬' : '猫',
-      breed: r.corrected || r.predicted,
-      predicted: r.predicted,
-      corrected: Boolean(r.corrected),
-      conf: r.confidence,
-      time: new Date(r.time).toLocaleString('zh-CN', { hour12: false }).slice(5, 16),
-      state: r.status
-    }))
-  } catch (e) {
-    return []
-  }
-}
-
-const rows = ref([...readAppRecords(), ...seedRecognitions])
-
+// 后端 status：done 已完成 / review 待审核 / confirmed 已采纳（可导出训练集）/ rejected 已驳回
 const tabs = [
   { key: 'all', label: '全部' },
   { key: 'review', label: '纠正待审核' },
-  { key: 'approved', label: '已采纳' }
+  { key: 'confirmed', label: '已采纳' }
 ]
 
+const rows = ref([])
+// 已采纳样本单独维护：切换 Tab 时「导出训练数据集」的计数与内容始终完整
+const confirmedRows = ref([])
+
+function toRow(r) {
+  const species = r.species === 'dog' ? '犬' : r.species === 'cat' ? '猫' : r.species || '—'
+  return {
+    id: r.id,
+    user: r.userId ? String(r.userId) : '—',
+    pet: species,
+    breed: r.corrected || r.predicted || '—',
+    predicted: r.predicted || '',
+    correction: r.corrected || '',
+    corrected: Boolean(r.corrected),
+    conf: Number(r.confidence || 0),
+    imageRef: r.imageRef || '',
+    time: r.time || '',
+    state: r.status === 'approved' ? 'confirmed' : r.status
+  }
+}
+
+async function loadRecords() {
+  try {
+    const [res, confirmed] = await Promise.all([
+      adminApi.records(tab.value === 'all' ? undefined : tab.value),
+      adminApi.records('confirmed')
+    ])
+    rows.value = (res?.list || []).map(toRow)
+    confirmedRows.value = (confirmed?.list || []).map(toRow)
+  } catch (e) {
+    showToast(e?.message || '识别记录加载失败', { type: 'warn' })
+  }
+}
+
+watch(tab, loadRecords)
+onMounted(loadRecords)
+
 function countOf(state) {
+  if (state === 'confirmed') return confirmedRows.value.length
   return rows.value.filter((r) => r.state === state).length
 }
 
-const approvedCount = computed(() => countOf('approved'))
+const approvedCount = computed(() => confirmedRows.value.length)
 
 const list = computed(() => {
   let out = rows.value
@@ -139,50 +154,49 @@ function confState(c) {
   return 'low'
 }
 function badgeOf(s) {
-  return { done: 'good', review: 'watch', failed: 'alert', approved: 'ok', rejected: 'neutral' }[s] || 'neutral'
+  return { done: 'good', review: 'watch', failed: 'alert', confirmed: 'good', rejected: 'neutral' }[s] || 'neutral'
 }
 function stateLabel(s) {
   return (
-    { done: '已完成', review: '纠正待审核', failed: '识别失败', approved: '已采纳', rejected: '已驳回' }[s] || s
+    { done: '已完成', review: '纠正待审核', failed: '识别失败', confirmed: '已采纳', rejected: '已驳回' }[s] || s || '—'
   )
 }
 
-// 审核：通过 → approved（进数据集）；驳回 → rejected（维持模型原预测）
-function review(id, pass) {
+// 审核：采纳 → confirmed（进数据集）；驳回 → rejected（清除纠正，维持模型原预测）
+async function review(id, pass) {
   const row = rows.value.find((r) => r.id === id)
   if (!row) return
-  row.state = pass ? 'approved' : 'rejected'
-  if (!pass) {
-    // 驳回后展示回模型原预测
-    row.breed = row.predicted || row.breed
-    row.corrected = false
-  }
-  // 同步写回共享键，App 端状态徽标随之更新
   try {
-    const app = JSON.parse(localStorage.getItem(RECOG_KEY) || '[]')
-    const hit = app.find((r) => r.id === id)
-    if (hit) {
-      hit.status = row.state
-      if (!pass) hit.corrected = null
-      localStorage.setItem(RECOG_KEY, JSON.stringify(app))
-    }
-  } catch (e) { /* 静态演示行不落盘 */ }
-  showToast(pass ? `已通过「${row.breed}」，计入训练数据集` : '已驳回，维持模型原预测', { type: pass ? 'success' : 'warn' })
+    await adminApi.reviewRecord(
+      id,
+      pass
+        ? { status: 'confirmed', corrected: row.correction || row.predicted }
+        : { status: 'rejected', corrected: null }
+    )
+    showToast(pass ? `已采纳纠正「${row.correction || row.breed}」，计入训练数据集` : '已驳回，维持模型原预测', {
+      type: pass ? 'success' : 'warn'
+    })
+    await loadRecords()
+  } catch (e) {
+    showToast(e?.message || '审核失败', { type: 'warn' })
+  }
 }
 
-// 导出审核通过的样本为训练数据集（JSON：图片引用 + 人工标签）
-function exportDataset() {
-  const samples = rows.value
-    .filter((r) => r.state === 'approved')
-    .map((r) => ({
-      image_ref: r.id,
-      species: r.pet === '犬' ? 'dog' : 'cat',
-      label: r.breed,
-      model_predicted: r.predicted || r.breed,
-      model_confidence: r.conf,
-      source: 'user_correction',
-      reviewed: true
-    }))
+// 导出已确认样本为训练数据集（JSON：图片引用 + 人工标签）
+async function exportDataset() {
+  const samples = confirmedRows.value.map((r) => ({
+    image_ref: r.imageRef || r.id,
+    species: r.pet === '犬' ? 'dog' : 'cat',
+    label: r.breed,
+    model_predicted: r.predicted || r.breed,
+    model_confidence: r.conf,
+    source: 'user_correction',
+    reviewed: true
+  }))
+  if (!samples.length) {
+    showToast('暂无已采纳样本可导出', { type: 'default' })
+    return
+  }
   const blob = new Blob([JSON.stringify({ dataset: 'petwise-corrections', count: samples.length, samples }, null, 2)], {
     type: 'application/json'
   })

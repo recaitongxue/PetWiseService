@@ -80,12 +80,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { consultRecords, pets, doctors, consultModes } from '@/data/mock'
-import { consultOrders, reports } from '@/data/ops'
+import { consultModes } from '@/data/static'
+import {
+  fetchConsultRecords, fetchPets, fetchDoctors, fetchConsultOrders, fetchReports
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 function goBack() {
@@ -101,62 +104,97 @@ const tab = ref('all')
 
 const modeLabel = (id) => (consultModes.find((m) => m.id === id) || {}).label || '图文'
 
-// 内置历史 + 本次会话中真实创建的问诊单
+const pets = ref([])
+const doctors = ref([])
+const records = ref([])
+const orders = ref([])
+const reports = ref([])
+
+const idEq = (a, b) => String(a) === String(b)
+
+// 问诊单 → 记录卡片（只保留列表需要的字段）
+function fromOrder(o) {
+  const pet = pets.value.find((p) => idEq(p.id, o.petId))
+  const doc = doctors.value.find((d) => idEq(d.id, o.doctorId))
+  const first =
+    o.summary?.note || o.summary?.complaints?.[0] || o.summary?.symptoms?.[0] || '健康咨询'
+  return {
+    id: o.id,
+    orderId: o.id,
+    reportId: o.reportId || null,
+    date: (o.createdAt || '').slice(0, 10),
+    petId: o.petId,
+    petName: pet ? pet.name : o.summary?.petName || '未指定',
+    species: pet ? pet.species : 'cat',
+    title: `${doc ? doc.name : ''}医生 · ${first}`.slice(0, 40),
+    preview: o.summary?.note || '等待医生回复中，可在问诊室补充照片与描述。',
+    state: o.state === 'closed' ? 'closed' : o.state === 'replied' ? 'replied' : 'pending',
+    type: 'human',
+    doctorName: doc ? doc.name : '',
+    modeLabel: modeLabel(o.mode)
+  }
+}
+
+// 问诊报告 → 记录卡片（结构化预问诊与真人问诊的最终产出物）
+function fromReport(r) {
+  const pet = pets.value.find((p) => idEq(p.id, r.petId))
+  return {
+    id: r.id,
+    reportId: r.id,
+    orderId: r.orderId || null,
+    date: r.date || '',
+    petId: r.petId,
+    petName: pet ? pet.name : r.petName || '未指定',
+    species: pet ? pet.species : 'cat',
+    title: r.title || '问诊报告',
+    preview: r.preview || '点击查看完整问诊报告',
+    state: 'closed',
+    type: r.type || 'ai',
+    doctorName: r.doctor ? r.doctor.name : '',
+    modeLabel: r.type === 'human' ? '问诊报告' : '预问诊报告'
+  }
+}
+
+// 问诊记录：三个来源按「报告 → 问诊单 → 合并记录」排优先级，按 id 去重避免重复卡片
 const all = computed(() => {
-  const builtin = consultRecords.map((r) => {
-    const pet = pets.find((p) => p.id === r.petId)
-    const doc = doctors.find((d) => d.id === r.doctorId)
+  const builtin = records.value.map((r) => {
+    const pet = pets.value.find((p) => idEq(p.id, r.petId))
+    const doc = doctors.value.find((d) => idEq(d.id, r.doctorId))
     return {
       ...r,
-      petName: pet ? pet.name : '未指定',
+      date: r.date || '',
+      petName: r.petName || (pet ? pet.name : '未指定'),
       species: pet ? pet.species : 'cat',
       doctorName: doc ? doc.name : '',
       modeLabel: modeLabel(r.mode),
-      orderId: null
-    }
-  })
-
-  const mine = consultOrders().map((o) => {
-    const pet = pets.find((p) => p.id === o.petId)
-    const doc = doctors.find((d) => d.id === o.doctorId)
-    const first = o.summary?.note || o.summary?.complaints?.[0] || o.summary?.symptoms?.[0] || '健康咨询'
-    return {
-      id: o.id,
-      orderId: o.id,
-      date: new Date(o.createdAt).toISOString().slice(0, 10),
-      petId: o.petId,
-      petName: pet ? pet.name : o.summary?.petName || '未指定',
-      species: pet ? pet.species : 'cat',
-      title: `${doc ? doc.name : ''}医生 · ${first}`.slice(0, 40),
-      preview: o.summary?.note || '等待医生回复中，可在问诊室补充照片与描述。',
-      state: o.state === 'closed' ? 'closed' : o.state === 'replied' ? 'replied' : 'pending',
-      type: 'human',
-      doctorName: doc ? doc.name : '',
-      modeLabel: modeLabel(o.mode)
-    }
-  })
-
-  // 问诊报告：结构化预问诊与真人问诊的最终产出物
-  const rp = reports().map((r) => {
-    const pet = pets.find((p) => p.id === r.petId)
-    return {
-      id: r.id,
-      reportId: r.id,
       orderId: r.orderId || null,
-      date: r.date,
-      petId: r.petId,
-      petName: pet ? pet.name : r.petName || '未指定',
-      species: pet ? pet.species : 'cat',
-      title: r.title,
-      preview: r.preview || '点击查看完整问诊报告',
-      state: 'closed',
-      type: r.type,
-      doctorName: r.doctor ? r.doctor.name : '',
-      modeLabel: r.type === 'human' ? '问诊报告' : '预问诊报告'
+      reportId: r.reportId || null
     }
   })
 
-  return [...rp, ...mine, ...builtin]
+  const seen = new Set()
+  return [...reports.value.map(fromReport), ...orders.value.map(fromOrder), ...builtin].filter(
+    (r) => !seen.has(r.id) && seen.add(r.id)
+  )
+})
+
+onMounted(async () => {
+  try {
+    const [ps, docs, recs, os, rs] = await Promise.all([
+      fetchPets(),
+      fetchDoctors(),
+      fetchConsultRecords(),
+      fetchConsultOrders(),
+      fetchReports()
+    ])
+    pets.value = ps || []
+    doctors.value = docs || []
+    records.value = recs || []
+    orders.value = os || []
+    reports.value = rs || []
+  } catch (e) {
+    showToast(e?.message || '问诊记录加载失败', { type: 'error' })
+  }
 })
 
 const rows = computed(() => (tab.value === 'all' ? all.value : all.value.filter((r) => r.type === tab.value)))

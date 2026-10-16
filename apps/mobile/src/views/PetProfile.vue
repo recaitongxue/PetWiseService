@@ -166,29 +166,38 @@
 </template>
 
 <script setup>
-import { computed, ref, reactive } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
 import HealthRing from '@/components/HealthRing.vue'
-import { pets, petWeightHistory, petSchedule } from '@/data/mock'
-import { customRecords, addRecord, removeRecord } from '@/data/ops'
-import { showToast } from '@/composables/toast'
+import {
+  fetchPet, fetchWeights, fetchPetSchedule,
+  fetchHealthRecords, addHealthRecord, removeHealthRecord
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
-const pet = computed(() => pets.find((p) => p.id === route.params.id))
+const petId = route.params.id
+
+const pet = ref(null)
+const weightBase = ref([])
+const schedMap = ref({})
+// 用户录入的健康记录（后端 GET /pets/{id}/records）
+const customRecs = ref([])
 
 function goBack() {
   router.back()
 }
 
-// 用户录入的记录（持久化在 localStorage，接入后端后改为接口）
-const customRecs = ref(customRecords())
+async function loadRecords(id) {
+  customRecs.value = await fetchHealthRecords(id)
+}
 
-// 体重趋势 = 内置月度数据 + 用户录入的体重（同月取最新一条，图表随之更新）
+// 体重趋势 = 后端月度体重 + 用户录入的体重（同月取最新一条，图表随之更新）
 const weightHistory = computed(() => {
-  const base = (petWeightHistory[pet.value?.id] || []).map((x) => ({ ...x }))
+  const base = (weightBase.value || []).map((x) => ({ ...x }))
   const mine = customRecs.value
     .filter((r) => r.petId === pet.value?.id && r.kind === 'weight' && r.value)
     .slice()
@@ -205,7 +214,8 @@ const weightHistory = computed(() => {
   })
   return base.sort((a, b) => parseInt(a.m) - parseInt(b.m))
 })
-const schedule = computed(() => petSchedule[pet.value?.id] || [])
+// 日程按 petId 分组返回
+const schedule = computed(() => (pet.value && schedMap.value[pet.value.id]) || [])
 
 const maxW = computed(() => Math.max(...weightHistory.value.map((w) => w.w), 1))
 function barH(w) {
@@ -224,7 +234,10 @@ const trendState = computed(() =>
 )
 
 function typeLabel(t) {
-  return { vaccine: '疫苗', deworm: '驱虫', check: '体检', weight: '体重' }[t] || '护理'
+  return {
+    vaccine: '疫苗', deworm: '驱虫', check: '体检', weight: '体重',
+    groom: '洗护', feed: '喂食', medication: '喂药'
+  }[t] || '护理'
 }
 
 // 内置记录 + 用户记录，用户记录排在前（按录入顺序，最新的在上）
@@ -294,24 +307,49 @@ function openRecord(kind) {
   recOpen.value = true
 }
 
-function save() {
-  addRecord({
-    petId: pet.value.id,
-    kind: form.kind,
-    date: form.date,
-    value: form.kind === 'weight' ? Number(form.value) : null,
-    note: form.note.trim()
-  })
-  customRecs.value = customRecords()
-  recOpen.value = false
-  showToast(form.kind === 'weight' ? '体重已记录，趋势图已更新' : '记录已保存', { type: 'success' })
+async function save() {
+  if (!pet.value?.id) return
+  try {
+    await addHealthRecord(pet.value.id, {
+      kind: form.kind,
+      record_date: form.date,
+      weight: form.kind === 'weight' ? Number(form.value) : null,
+      note: form.note.trim() || null
+    })
+    recOpen.value = false
+    await loadRecords(pet.value.id)
+    showToast(form.kind === 'weight' ? '体重已记录，趋势图已更新' : '记录已保存', { type: 'success' })
+  } catch (e) {
+    showToast(e?.message || '保存失败', { type: 'error' })
+  }
 }
 
-function del(id) {
-  removeRecord(id)
-  customRecs.value = customRecords()
-  showToast('记录已删除')
+async function del(id) {
+  try {
+    await removeHealthRecord(id)
+    await loadRecords(pet.value.id)
+    showToast('记录已删除')
+  } catch (e) {
+    showToast(e?.message || '删除失败', { type: 'error' })
+  }
 }
+
+onMounted(async () => {
+  try {
+    const [p, ws, sm] = await Promise.all([
+      fetchPet(petId).catch(() => null),
+      fetchWeights(petId).catch(() => []),
+      fetchPetSchedule().catch(() => ({}))
+    ])
+    // nextVaccine 后端可为空，模板直接 slice(5) → 兜成空串避免报错
+    pet.value = p ? { ...p, nextVaccine: p.nextVaccine || '' } : null
+    weightBase.value = ws || []
+    schedMap.value = sm || {}
+    if (pet.value) await loadRecords(petId)
+  } catch (e) {
+    showToast(e?.message || '档案加载失败', { type: 'error' })
+  }
+})
 </script>
 
 <style scoped>

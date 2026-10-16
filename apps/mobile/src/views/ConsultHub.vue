@@ -205,30 +205,49 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/icons/AppIcon.vue'
 import PetAvatar from '@/components/PetAvatar.vue'
-import { doctors, pets, consultModes, consultRecords } from '@/data/mock'
-import { aiQuota, consultOrders, reports } from '@/data/ops'
+import { consultModes } from '@/data/static'
+import {
+  fetchDoctors, fetchPets, fetchConsultRecords, fetchConsultOrders, fetchReports, fetchAiQuota
+} from '@/api/data'
+import { showToast } from '@shared/toast'
 
 const router = useRouter()
 
-const quota = ref(aiQuota())
-const orders = ref(consultOrders())
-const builtin = consultRecords.length
-const myReports = ref(reports())
+const doctors = ref([])
+const pets = ref([])
+const quota = ref({ free: 3, used: 0, left: 3 })
+const orders = ref([])
+const myReports = ref([])
+const myRecords = ref([])
 
 // 报告与订单在页面每次进入时刷新（下单 / 结束问诊后返回此处可见）
-onMounted(() => {
-  quota.value = aiQuota()
-  orders.value = consultOrders()
-  myReports.value = reports()
+onMounted(async () => {
+  try {
+    const [docs, ps, q, os, rs, recs] = await Promise.all([
+      fetchDoctors(),
+      fetchPets(),
+      fetchAiQuota(),
+      fetchConsultOrders(),
+      fetchReports(),
+      fetchConsultRecords()
+    ])
+    doctors.value = docs || []
+    pets.value = ps || []
+    quota.value = q || quota.value
+    orders.value = os || []
+    myReports.value = rs || []
+    myRecords.value = recs || []
+  } catch (e) {
+    showToast(e?.message || '问诊中心加载失败', { type: 'error' })
+  }
 })
 
-const onlineCount = computed(() => doctors.filter((d) => d.online).length)
-const recordCount = computed(() => builtin + myReports.value.length + orders.value.length)
+const onlineCount = computed(() => doctors.value.filter((d) => d.online).length)
+const recordCount = computed(() => myRecords.value.length)
 const ongoing = computed(() => orders.value.filter((o) => o.state !== 'closed'))
 const latestReports = computed(() => myReports.value.slice(0, 2))
 
@@ -238,10 +257,10 @@ function shortDate(iso) {
 }
 
 function doctorOf(o) {
-  return doctors.find((d) => d.id === o.doctorId) || { name: '兽医', deptLabel: '在线问诊' }
+  return o.doctor || doctors.value.find((d) => d.id === o.doctorId) || { name: '兽医', deptLabel: '在线问诊' }
 }
 function petName(id) {
-  return (pets.find((p) => p.id === id) || {}).name || '宠物'
+  return (pets.value.find((p) => p.id === id) || {}).name || '宠物'
 }
 function modeLabel(id) {
   return (consultModes.find((m) => m.id === id) || {}).label || '图文问诊'
@@ -250,9 +269,11 @@ function stateText(o) {
   return { pending: '待接诊', replied: '医生已回复', closed: '已完成' }[o.state] || '进行中'
 }
 function lastMsg(o) {
-  const m = o.messages?.filter((x) => x.type !== 'system').slice(-1)[0]
-  if (!m) return o.summary || '医生正在查看你的病例摘要…'
-  return m.text
+  const msgs = o.messages || []
+  const m = msgs.filter((x) => x.type !== 'system').slice(-1)[0]
+  if (m) return m.text
+  if (o.lastMessage && o.lastMessage.text) return o.lastMessage.text
+  return o.summary || '医生正在查看你的病例摘要…'
 }
 function reportBrief(r) {
   return r.triage?.short || r.chief?.note || '查看完整分诊结论与建议'

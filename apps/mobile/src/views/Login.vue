@@ -132,7 +132,7 @@ import BrandMark from '@/components/BrandMark.vue'
 import CodeInput from '@/components/CodeInput.vue'
 import { smsSendCount, bumpSmsSend, SMS_DAILY_MAX } from '@/api/client'
 import { loginWithCode, sendSmsCode } from '@/api/data'
-import { showToast } from '@/composables/toast'
+import { showToast } from '@shared/toast'
 
 const route = useRoute()
 const router = useRouter()
